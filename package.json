@@ -1,0 +1,32 @@
+{
+  "name": "xgdmobile2.0",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "ant-design-vue": "latest",
+    "antd-mobile": "latest",
+    "axios": "latest",
+    "dayjs": "latest",
+    "pinia": "latest",
+    "vant": "^4.9.17",
+    "vue": "latest",
+    "vue-router": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@vitejs/plugin-vue": "latest",
+    "less": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vue-tsc": "^2.2.8"
+  }
+}
