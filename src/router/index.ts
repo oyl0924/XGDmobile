@@ -24,6 +24,24 @@ const routes: Array<RouteRecordRaw> = [
     }
   },
   {
+    path: '/task',
+    name: 'TaskList',
+    component: () => import('@/views/TaskList.vue'),
+    meta: {
+      title: '任务',
+      keepAlive: true
+    }
+  },
+  {
+    path: '/my-profile',
+    name: 'MyProfile',
+    component: () => import('@/views/MyProfile.vue'),
+    meta: {
+      title: '我的',
+      keepAlive: true
+    }
+  },
+  {
     path: '/work-report',
     name: 'WorkReport',
     component: () => import('@/views/WorkReport.vue'),

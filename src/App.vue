@@ -2,13 +2,27 @@
   <div class="app">
     <router-view />
     <div class="tab-bar-container">
-      <Tabbar v-model="active" route>
-        <TabbarItem icon="todo-list-o" to="/work-order" name="work-order">工单</TabbarItem>
-        <TabbarItem icon="chart-trending-o" to="/report" name="report">报工</TabbarItem>
-      </Tabbar>
-      <div class="scan-button-wrapper">
-        <div class="scan-button" @click="handleShowScanPage">
-          <Icon name="scan" size="24" color="#fff" />
+      <div class="custom-tabbar">
+        <div class="tabbar-item" :class="{ active: active === 'work-order' }" @click="navigateTo('/work-order', 'work-order')">
+          <Icon name="todo-list-o" :color="active === 'work-order' ? '#1989fa' : '#646566'" />
+          <div class="tabbar-text">工单</div>
+        </div>
+        <div class="tabbar-item" :class="{ active: active === 'task' }" @click="navigateTo('/task', 'task')">
+          <Icon name="cluster-o" :color="active === 'task' ? '#1989fa' : '#646566'" />
+          <div class="tabbar-text">任务</div>
+        </div>
+        <div class="tabbar-item scan">
+          <div class="scan-button" @click="handleShowScanPage">
+            <Icon name="scan" size="24" color="#fff" />
+          </div>
+        </div>
+        <div class="tabbar-item" :class="{ active: active === 'report' }" @click="navigateTo('/report', 'report')">
+          <Icon name="chart-trending-o" :color="active === 'report' ? '#1989fa' : '#646566'" />
+          <div class="tabbar-text">报工</div>
+        </div>
+        <div class="tabbar-item" :class="{ active: active === 'my-profile' }" @click="navigateTo('/my-profile', 'my-profile')">
+          <Icon name="user-o" :color="active === 'my-profile' ? '#1989fa' : '#646566'" />
+          <div class="tabbar-text">我的</div>
         </div>
       </div>
     </div>
@@ -53,6 +67,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast } from 'vant';
+import { useRouter } from 'vue-router';
 
 // 为旧版相机API添加类型定义
 interface NavigatorWithLegacyUserMedia extends Navigator {
@@ -62,11 +77,18 @@ interface NavigatorWithLegacyUserMedia extends Navigator {
   msGetUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
 }
 
+const router = useRouter();
 const active = ref('report');
 const showScanPage = ref(false);
 const hasCameraPermission = ref(false);
 const videoRef = ref<HTMLVideoElement | null>(null);
 let mediaStream: MediaStream | null = null;
+
+// 导航函数
+const navigateTo = (path: string, name: string) => {
+  active.value = name;
+  router.push(path);
+};
 
 // 检查浏览器是否支持相机API
 const checkCameraSupport = () => {
@@ -207,35 +229,53 @@ watch(showScanPage, async (newValue) => {
   z-index: 99;
 }
 
-:deep(.van-tabbar) {
+.custom-tabbar {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
   background-color: #ffffff;
   box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
+  height: 50px;
 }
 
-.scan-button-wrapper {
-  position: fixed;
-  left: 50%;
-  bottom: 25px;
-  transform: translate(-50%, 50%);
-  z-index: 100;
-  width: 56px;
-  height: 56px;
-  background-color: #fff;
-  border-radius: 50%;
-  padding: 3px;
+.tabbar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  cursor: pointer;
+  flex: 1;
+  text-align: center;
+}
+
+.tabbar-item.active {
+  color: #1989fa;
+}
+
+.tabbar-text {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.tabbar-item.scan {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .scan-button {
-  width: 100%;
-  height: 100%;
+  width: 45px;
+  height: 45px;
   border-radius: 50%;
   background-color: #1989fa;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(25, 137, 250, 0.5);
+  position: relative;
 }
 
 /* 扫码页面样式 */
