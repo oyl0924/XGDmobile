@@ -4,30 +4,25 @@
       title="报工列表" 
       fixed 
       right-text=" "
-    >
-      <template #right>
-        <div class="action-buttons">
-          <Icon 
-            name="checked" 
-            size="20" 
-            :class="['action-icon', { active: isMultiSelect }]" 
-            @click="toggleMultiSelect" 
-          />
-          <Icon 
-            name="filter-o" 
-            size="20" 
-            :class="['action-icon', { active: showFilter }]" 
-            @click="toggleFilter" 
-          />
-          <Icon 
-            name="plus" 
-            size="20" 
-            class="action-icon" 
-            @click="goToReportCreate" 
-          />
+    />
+    
+    <!-- 控件区域 - 快速筛选 -->
+    <div class="control-area">
+      <div class="standard-controls">
+        <div class="filter-dropdown">
+          <div class="dropdown-title" @click="showQuickFilterPopup = true">
+            {{ getQuickFilterText() }}
+            <Icon name="arrow-down" size="14" />
+          </div>
         </div>
-      </template>
-    </NavBar>
+        <div class="control-buttons">
+          <Icon name="checked" size="20" class="control-icon" :class="{ active: isMultiSelect }" @click="toggleMultiSelect" />
+          <Icon name="filter-o" size="20" class="control-icon" :class="{ active: showFilter }" @click="toggleFilter" />
+          <Icon name="sort" size="20" class="control-icon" @click="showSortPopup = true" />
+          <Icon name="plus" size="20" class="control-icon" @click="goToReportCreate" />
+        </div>
+      </div>
+    </div>
     
     <!-- 统计卡片 -->
     <div class="stats-container">
@@ -67,11 +62,71 @@
     <!-- 筛选标签 -->
     <div class="tabs-container">
       <Tabs v-model:active="activeTab" swipeable>
-        <Tab title="全部" name="all" />
-        <Tab title="已审批" name="approved" />
-        <Tab title="未审批" name="unapproved" />
+        <Tab :title="`全部 ${tabCounts.all}`" name="all" />
+        <Tab :title="`已审批 ${tabCounts.approved}`" name="approved" />
+        <Tab :title="`未审批 ${tabCounts.unapproved}`" name="unapproved" />
       </Tabs>
     </div>
+    
+    <!-- 快速筛选弹出框 -->
+    <Popup
+      v-model:show="showQuickFilterPopup"
+      position="bottom"
+      round
+      closeable
+    >
+      <div class="popup-title">快速筛选</div>
+      <RadioGroup v-model="quickFilter" class="filter-options">
+        <Cell title="全部报工" clickable @click="setQuickFilter('all')">
+          <template #right-icon>
+            <Radio name="all" />
+          </template>
+        </Cell>
+        <Cell title="我的报工" clickable @click="setQuickFilter('my')">
+          <template #right-icon>
+            <Radio name="my" />
+          </template>
+        </Cell>
+        <Cell title="今日报工" clickable @click="setQuickFilter('today')">
+          <template #right-icon>
+            <Radio name="today" />
+          </template>
+        </Cell>
+      </RadioGroup>
+      <div class="popup-actions">
+        <Button type="primary" block @click="applyQuickFilter">确认</Button>
+      </div>
+    </Popup>
+    
+    <!-- 排序弹出框 -->
+    <Popup
+      v-model:show="showSortPopup"
+      position="bottom"
+      round
+      closeable
+    >
+      <div class="popup-title">排序方式</div>
+      <RadioGroup v-model="sortMethod" class="sort-options">
+        <Cell title="报工时间" clickable @click="setSortMethod('reportTime')">
+          <template #right-icon>
+            <Radio name="reportTime" />
+          </template>
+        </Cell>
+        <Cell title="产品名称" clickable @click="setSortMethod('productName')">
+          <template #right-icon>
+            <Radio name="productName" />
+          </template>
+        </Cell>
+        <Cell title="报工数量" clickable @click="setSortMethod('quantity')">
+          <template #right-icon>
+            <Radio name="quantity" />
+          </template>
+        </Cell>
+      </RadioGroup>
+      <div class="popup-actions">
+        <Button type="primary" block @click="applySort">确认</Button>
+      </div>
+    </Popup>
     
     <!-- 筛选面板 -->
     <Popup v-model:show="showFilter" position="right" :style="{ width: '80%', height: '100%' }">
@@ -223,10 +278,18 @@
         <Button 
           type="primary" 
           size="small" 
-          :disabled="selectedCount === 0"
+          :disabled="selectedCount === 0 || !hasUnapprovedSelected"
           @click="approveSelected"
         >
           审批
+        </Button>
+        <Button 
+          type="warning" 
+          size="small" 
+          :disabled="selectedCount === 0 || !hasApprovedSelected"
+          @click="unapproveSelected"
+        >
+          反审批
         </Button>
       </div>
     </div>
@@ -251,9 +314,13 @@ import {
   Checkbox,
   showToast,
   showDialog,
-  DatePicker
+  DatePicker,
+  Radio,
+  RadioGroup,
+  Cell
 } from 'vant';
 import { formatDate as formatDateHelper } from '@/utils/date';
+import type { WorkReportItem } from '@/api/types';
 
 const router = useRouter();
 
@@ -267,12 +334,71 @@ const stats = reactive({
   totalSalary: '¥12,500'
 });
 
+// 标签页计数
+const tabCounts = reactive({
+  all: 0,
+  approved: 0,
+  unapproved: 0
+});
+
 // 分类标签
 const activeTab = ref('all');
 
 // 多选模式
 const isMultiSelect = ref(false);
 const selectedCount = computed(() => reports.value.filter(item => item.selected).length);
+const hasApprovedSelected = computed(() => reports.value.some(item => item.selected && item.approved));
+const hasUnapprovedSelected = computed(() => reports.value.some(item => item.selected && !item.approved));
+
+// 快速筛选
+const quickFilter = ref<'all' | 'my' | 'today'>('all');
+const showQuickFilterPopup = ref(false);
+
+// 排序功能
+const showSortPopup = ref(false);
+const sortMethod = ref<'reportTime' | 'productName' | 'quantity'>('reportTime');
+
+// 获取快速筛选的显示文本
+const getQuickFilterText = () => {
+  switch (quickFilter.value) {
+    case 'all':
+      return '全部报工';
+    case 'my':
+      return '我的报工';
+    case 'today':
+      return '今日报工';
+    default:
+      return '全部报工';
+  }
+};
+
+// 设置快速筛选选项
+const setQuickFilter = (filter: 'all' | 'my' | 'today') => {
+  quickFilter.value = filter;
+  showQuickFilterPopup.value = false;
+  // 重新加载数据
+  loadReports();
+};
+
+// 应用快速筛选
+const applyQuickFilter = () => {
+  showQuickFilterPopup.value = false;
+  loadReports();
+};
+
+// 设置排序方法
+const setSortMethod = (method: 'reportTime' | 'productName' | 'quantity') => {
+  sortMethod.value = method;
+};
+
+// 应用排序
+const applySort = () => {
+  showToast(`排序方式：${sortMethod.value}`);
+  showSortPopup.value = false;
+  
+  // 重新加载数据
+  loadReports();
+};
 
 // 筛选功能
 const showFilter = ref(false);
@@ -288,11 +414,11 @@ const filter = reactive({
 
 // 日期选择
 const showDatePicker = ref(false);
-const currentDate = ref(new Date());
+const currentDate = ref<string[]>([]);
 const datePickerTitle = ref('选择开始日期');
 
 // 列表数据
-const originalReports = ref([
+const originalReports = ref<WorkReportItem[]>([
   {
     id: '1',
     orderNumber: 'WO20231001',
@@ -333,7 +459,7 @@ const originalReports = ref([
     selected: false
   }
 ]);
-const reports = ref([]);
+const reports = ref<WorkReportItem[]>([]);
 
 // 列表加载状态
 const loading = ref(false);
@@ -343,6 +469,7 @@ const refreshing = ref(false);
 // 初始化
 onMounted(() => {
   loadReports();
+  updateTabCounts();
 });
 
 // 监听标签切换
@@ -352,6 +479,11 @@ watch(activeTab, (newValue) => {
   loadReports();
 });
 
+// 监听快速筛选变化
+watch(quickFilter, (newValue) => {
+  console.log('快速筛选切换为:', newValue);
+});
+
 // 方法: 加载报工列表
 const loadReports = () => {
   // 设置加载状态
@@ -359,17 +491,41 @@ const loadReports = () => {
   
   // 实际应用中应该调用API，根据activeTab和filter条件筛选数据
   setTimeout(() => {
-    // 模拟根据标签筛选数据
+    // 首先应用快速筛选
+    let filtered = [...originalReports.value];
+    
+    if (quickFilter.value === 'my') {
+      // 筛选当前用户的报工（示例使用'张三'作为当前用户）
+      filtered = filtered.filter(item => item.workerName === '张三');
+    } else if (quickFilter.value === 'today') {
+      // 筛选今日报工
+      const today = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(item => item.reportTime.startsWith(today));
+    }
+    
+    // 然后应用标签筛选
     if (activeTab.value === 'all') {
       // 不做筛选，显示所有数据
-      reports.value = [...originalReports.value];
+      reports.value = [...filtered];
     } else if (activeTab.value === 'approved') {
       // 筛选已审批的数据
-      reports.value = originalReports.value.filter(item => item.approved);
+      reports.value = filtered.filter(item => item.approved);
     } else if (activeTab.value === 'unapproved') {
       // 筛选未审批的数据
-      reports.value = originalReports.value.filter(item => !item.approved);
+      reports.value = filtered.filter(item => !item.approved);
     }
+    
+    // 应用排序
+    reports.value.sort((a, b) => {
+      if (sortMethod.value === 'reportTime') {
+        return new Date(b.reportTime).getTime() - new Date(a.reportTime).getTime();
+      } else if (sortMethod.value === 'productName') {
+        return a.productName.localeCompare(b.productName);
+      } else if (sortMethod.value === 'quantity') {
+        return b.quantity - a.quantity;
+      }
+      return 0;
+    });
     
     // 模拟加载完成
     loading.value = false;
@@ -379,7 +535,27 @@ const loadReports = () => {
     
     // 更新统计数据
     updateStats();
+    // 更新标签页计数
+    updateTabCounts();
   }, 1000);
+};
+
+// 更新标签页计数
+const updateTabCounts = () => {
+  // 根据快速筛选条件过滤数据
+  let filtered = [...originalReports.value];
+  
+  if (quickFilter.value === 'my') {
+    filtered = filtered.filter(item => item.workerName === '张三');
+  } else if (quickFilter.value === 'today') {
+    const today = new Date().toISOString().split('T')[0];
+    filtered = filtered.filter(item => item.reportTime.startsWith(today));
+  }
+  
+  // 计算各标签的数量
+  tabCounts.all = filtered.length;
+  tabCounts.approved = filtered.filter(item => item.approved).length;
+  tabCounts.unapproved = filtered.filter(item => !item.approved).length;
 };
 
 // 更新统计数据
@@ -414,7 +590,7 @@ const onLoad = () => {
 };
 
 // 方法: 查看报工详情
-const viewReportDetail = (item) => {
+const viewReportDetail = (item: WorkReportItem) => {
   if (isMultiSelect.value) {
     // 多选模式下点击切换选中状态
     item.selected = !item.selected;
@@ -456,7 +632,7 @@ const resetFilter = () => {
     dateType: 'start'
   });
   datePickerTitle.value = '选择开始日期';
-  currentDate.value = new Date();
+  currentDate.value = [];
   showToast('筛选条件已重置');
 };
 
@@ -471,15 +647,13 @@ const applyFilter = () => {
 };
 
 // 方法: 日期确认
-const onDateConfirm = (value) => {
+const onDateConfirm = (value: Date) => {
   if (filter.dateType === 'start') {
     filter.startDate = value;
     filter.dateType = 'end';
     datePickerTitle.value = '选择结束日期';
-    currentDate.value = filter.endDate || new Date();
-    // 如果选择的是开始日期，保持日期选择器打开，切换到选择结束日期
+    currentDate.value = filter.endDate ? [formatDateHelper(filter.endDate, 'yyyy-MM-dd')] : [];
   } else {
-    // 选择了结束日期，关闭选择器
     filter.endDate = value;
     showDatePicker.value = false;
     filter.dateType = 'start';
@@ -491,21 +665,35 @@ const onDateConfirm = (value) => {
 const openDatePicker = () => {
   filter.dateType = 'start';
   datePickerTitle.value = '选择开始日期';
-  currentDate.value = filter.startDate || new Date();
+  currentDate.value = filter.startDate ? [formatDateHelper(filter.startDate, 'yyyy-MM-dd')] : [];
   showDatePicker.value = true;
 };
 
 // 方法: 格式化日期
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string) => {
   return formatDateHelper(new Date(dateStr), 'yyyy-MM-dd HH:mm');
 };
 
 // 方法: 格式化日期范围
-const formatDateRange = (start, end) => {
+const formatDateRange = (start: Date | null, end: Date | null) => {
   if (!start && !end) return '';
-  if (!start) return `至 ${formatDateHelper(end, 'yyyy-MM-dd')}`;
-  if (!end) return `${formatDateHelper(start, 'yyyy-MM-dd')} 起`;
-  return `${formatDateHelper(start, 'yyyy-MM-dd')} 至 ${formatDateHelper(end, 'yyyy-MM-dd')}`;
+  if (!start && end) return `至 ${formatDateHelper(end, 'yyyy-MM-dd')}`;
+  if (start && !end) return `${formatDateHelper(start, 'yyyy-MM-dd')} 起`;
+  if (start && end) return `${formatDateHelper(start, 'yyyy-MM-dd')} 至 ${formatDateHelper(end, 'yyyy-MM-dd')}`;
+  return '';
+};
+
+// 方法: 处理状态变化
+const handleStatusChange = (value: string) => {
+  showToast({
+    message: `工序状态已切换为：${value}`,
+    position: 'bottom',
+  });
+};
+
+// 方法: 处理不良品输入
+const handleDefectInput = (item: WorkReportItem) => {
+  // ... existing code ...
 };
 
 // 方法: 删除选中项
@@ -533,6 +721,8 @@ const deleteSelected = () => {
     
     // 更新统计数据
     updateStats();
+    // 更新标签页计数
+    updateTabCounts();
   });
 };
 
@@ -566,13 +756,57 @@ const approveSelected = () => {
     showToast('审批成功');
     isMultiSelect.value = false;
     
-    // 更新统计数据
-    updateStats();
-    
     // 如果当前是在"未审批"标签，则需要重新加载数据
     if (activeTab.value === 'unapproved') {
       loadReports();
     }
+  });
+};
+
+// 方法: 反审批选中项
+const unapproveSelected = () => {
+  showDialog({
+    title: '确认反审批',
+    message: `确定要反审批选中的 ${selectedCount.value} 条报工记录吗？`,
+    showCancelButton: true
+  }).then(() => {
+    // 在实际应用中，应该调用API进行反审批操作
+    // 这里仅作示例，直接修改本地数据
+    const selectedIds = reports.value
+      .filter(item => item.selected && item.approved)
+      .map(item => item.id);
+    
+    if (selectedIds.length === 0) {
+      showToast('没有可反审批的记录');
+      return;
+    }
+    
+    // 更新本地数据
+    reports.value.forEach(item => {
+      if (selectedIds.includes(item.id)) {
+        item.approved = false;
+      }
+    });
+    
+    // 同时更新原始数据
+    originalReports.value.forEach(item => {
+      if (selectedIds.includes(item.id)) {
+        item.approved = false;
+      }
+    });
+    
+    showToast('反审批成功');
+    
+    // 如果当前在已审批标签页，则需要重新加载数据
+    if (activeTab.value === 'approved') {
+      loadReports();
+    } else {
+      // 更新统计数据和标签页计数
+      updateStats();
+      updateTabCounts();
+    }
+  }).catch(() => {
+    // 用户取消操作
   });
 };
 
@@ -584,22 +818,48 @@ const goToReportCreate = () => {
 
 <style scoped lang="less">
 .report-list {
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: #f5f5f5;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-// 右上角按钮
-.action-buttons {
+// 控件区域
+.control-area {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 12px;
+  background-color: #fff;
+}
+
+.standard-controls {
   display: flex;
+  justify-content: space-between;
   align-items: center;
+}
+
+.filter-dropdown {
+  flex: 1;
+}
+
+.dropdown-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #323233;
+  padding: 6px 0;
+}
+
+.control-buttons {
+  display: flex;
   gap: 16px;
 }
 
-.action-icon {
-  color: #323233;
+.control-icon {
+  padding: 4px;
   
   &.active {
     color: #1989fa;
@@ -608,8 +868,11 @@ const goToReportCreate = () => {
 
 // 统计卡片
 .stats-container {
-  margin-top: 46px;
+  position: sticky;
+  top: 46px;
+  z-index: 2;
   padding: 12px;
+  background-color: #f5f5f5;
 }
 
 .stats-card {
@@ -648,17 +911,35 @@ const goToReportCreate = () => {
 
 // 筛选标签
 .tabs-container {
-  background-color: #fff;
   position: sticky;
-  top: 46px;
-  z-index: 1;
+  top: calc(46px + 120px); // 调整这个值以适应统计卡片的高度
+  z-index: 2;
+  background-color: #fff;
+}
+
+// 弹出框样式
+.popup-title {
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+  border-bottom: 1px solid #f2f2f2;
+}
+
+.filter-options, .sort-options {
+  padding: 8px 0;
+}
+
+.popup-actions {
+  padding: 16px;
 }
 
 // 列表容器
 .list-container {
   flex: 1;
   overflow-y: auto;
-  padding: 0 12px 12px;
+  padding: 0 12px 120px; // 增加底部padding以适应多选操作栏和底部导航栏
+  -webkit-overflow-scrolling: touch;
 }
 
 // 报工卡片
@@ -734,8 +1015,8 @@ const goToReportCreate = () => {
 
 // 多选操作栏
 .multi-select-bar {
-  position: sticky;
-  bottom: 0;
+  position: fixed; // 改为固定定位
+  bottom: 50px; // 调整位置以适应扫码按钮
   left: 0;
   right: 0;
   background-color: #fff;
@@ -744,7 +1025,7 @@ const goToReportCreate = () => {
   align-items: center;
   padding: 8px 16px;
   box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
-  z-index: 2;
+  z-index: 101; // 确保在扫码按钮之上
 }
 
 .select-info {

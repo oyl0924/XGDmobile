@@ -67,4 +67,19 @@ export interface WorkReportSubmit {
   defectQuantity: number;
   defectReasonId?: string;
   reportTime: string;
+}
+
+// 报工列表项类型
+export interface WorkReportItem {
+  id: string;
+  orderNumber: string;
+  workerName: string;
+  productName: string;
+  processName: string;
+  quantity: number;
+  goodQuantity: number;
+  defectQuantity: number;
+  reportTime: string;
+  approved: boolean;
+  selected?: boolean;
 } 
