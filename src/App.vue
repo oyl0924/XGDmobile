@@ -1,7 +1,7 @@
 <template>
   <div class="app">
     <router-view />
-    <div class="tab-bar-container">
+    <div class="tab-bar-container" v-if="showTabBar">
       <div class="custom-tabbar">
         <div class="tabbar-item" :class="{ active: active === 'work-order' }" @click="navigateTo('/work-order', 'work-order')">
           <Icon name="todo-list-o" :color="active === 'work-order' ? '#1989fa' : '#646566'" />
@@ -92,9 +92,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast, RadioGroup, Radio, Cell } from 'vant';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { isWechat } from '@/utils/browser';
 
 // 为旧版相机API添加类型定义
@@ -112,6 +112,7 @@ interface CameraDevice {
 }
 
 const router = useRouter();
+const route = useRoute();
 const active = ref('report');
 const showScanPage = ref(false);
 const hasCameraPermission = ref(false);
@@ -122,6 +123,13 @@ let mediaStream: MediaStream | null = null;
 const showCameraSelector = ref(false);
 const availableCameras = ref<CameraDevice[]>([]);
 const selectedCameraId = ref('');
+
+// 判断是否显示底部导航栏
+const showTabBar = computed(() => {
+  // 主页面路径列表
+  const mainPages = ['/work-order', '/task', '/report', '/my-profile'];
+  return mainPages.includes(route.path);
+});
 
 // 从本地存储中获取上次使用的摄像头ID
 onMounted(() => {

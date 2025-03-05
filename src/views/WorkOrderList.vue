@@ -80,6 +80,17 @@
                 <div class="quantity">计划数: {{ item.quantity }}</div>
               </div>
               
+              <!-- 工序进度条 -->
+              <div class="process-progress-container">
+                <ProcessProgress 
+                  v-if="item.processProgress && item.processProgress.length > 0"
+                  :processes="item.processProgress"
+                />
+                <div v-else class="loading-process-progress">
+                  <Loading size="24px" type="spinner" />
+                </div>
+              </div>
+              
               <div class="order-info">
                 <div class="info-row">
                   <span class="info-label">优先级:</span>
@@ -100,14 +111,9 @@
                   <span class="info-label">创建时间:</span>
                   <span class="info-value">{{ formatDate(item.createTime) }}</span>
                 </div>
-              </div>
-              
-              <div class="process-progress">
-                <div class="progress-title">工序进度:</div>
-                <Progress :percentage="item.progress" :show-pivot="false" stroke-width="8" />
-                <div class="progress-info">
-                  <span>{{ item.completedProcesses }}/{{ item.totalProcesses }}</span>
-                  <span>{{ item.progress }}%</span>
+                <div class="info-row">
+                  <span class="info-label">剩余天数:</span>
+                  <span class="info-value">{{ item.remainDays }} 天</span>
                 </div>
               </div>
             </div>
@@ -268,15 +274,19 @@ import {
   Switch,
   DatePicker,
   showToast,
-  Dialog
+  Dialog,
+  Loading
 } from 'vant';
 import { formatDate as formatDateHelper } from '@/utils/date';
 import { 
   RawWorkOrderItem, 
   WorkOrderItem, 
+  ProcessProgressItem,
   convertWorkOrder,
-  getWorkOrders
+  getWorkOrders,
+  getWorkOrderProcessProgress
 } from '@/api/workOrder';
+import ProcessProgress from '@/components/ProcessProgress.vue';
 
 // 类型定义
 interface FilterCondition {
@@ -288,6 +298,11 @@ interface FilterCondition {
   orderNumber: string;
   productName: string;
   onlyUrgent: boolean;
+}
+
+// 扩展WorkOrderItem添加工序进度
+interface WorkOrderWithProgress extends WorkOrderItem {
+  processProgress?: ProcessProgressItem[];
 }
 
 // 添加 TagType 类型定义
@@ -453,50 +468,50 @@ const applyFilter = () => {
 };
 
 // 列表数据
-const originalOrders = ref<RawWorkOrderItem[]>([
+const mockData: WorkOrderWithProgress[] = [
   {
     id: '1',
     orderNumber: 'GD2025022800001',
-    productName: '芯线',
-    quantity: 122,
-    status: '执行中',
-    isUrgent: true,
-    startTime: '2025-02-28 00:00:00',
-    endTime: '2025-03-05 00:00:00',
-    createTime: '2025-02-26 10:00:00',
+    productName: '螺丝刀',
+    quantity: 100,
+    status: '未开始',
+    isUrgent: 1, // 这里修改为数字类型
+    startTime: '2025-02-20 00:00:00',
+    endTime: '2025-02-25 00:00:00',
+    createTime: '2025-02-18 08:45:00',
     completedProcesses: 0,
-    totalProcesses: 3,
+    totalProcesses: 5,
     progress: 0,
-    remainDays: 4
+    remainDays: 5
   },
   {
     id: '2',
     orderNumber: 'GD2025022800002',
-    productName: '配电箱',
+    productName: '扳手',
     quantity: 50,
-    status: '未开始',
-    isUrgent: false,
-    startTime: '2025-03-01 00:00:00',
-    endTime: '2025-03-10 00:00:00',
-    createTime: '2025-02-25 14:30:00',
-    completedProcesses: 0,
+    status: '进行中',
+    isUrgent: 0, // 这里修改为数字类型
+    startTime: '2025-02-19 00:00:00',
+    endTime: '2025-02-28 00:00:00',
+    createTime: '2025-02-17 10:30:00',
+    completedProcesses: 3,
     totalProcesses: 5,
-    progress: 0,
-    remainDays: 10
+    progress: 60,
+    remainDays: 8
   },
   {
     id: '3',
     orderNumber: 'GD2025022800003',
-    productName: '开关面板',
+    productName: '锤子',
     quantity: 200,
-    status: '执行中',
-    isUrgent: false,
-    startTime: '2025-02-27 00:00:00',
-    endTime: '2025-03-08 00:00:00',
-    createTime: '2025-02-24 09:15:00',
+    status: '进行中',
+    isUrgent: 0, // 这里修改为数字类型
+    startTime: '2025-02-18 00:00:00',
+    endTime: '2025-03-01 00:00:00',
+    createTime: '2025-02-16 14:20:00',
     completedProcesses: 2,
-    totalProcesses: 4,
-    progress: 50,
+    totalProcesses: 5,
+    progress: 40,
     remainDays: 8
   },
   {
@@ -505,7 +520,7 @@ const originalOrders = ref<RawWorkOrderItem[]>([
     productName: '电线',
     quantity: 1000,
     status: '已结束',
-    isUrgent: false,
+    isUrgent: 0, // 这里修改为数字类型
     startTime: '2025-02-20 00:00:00',
     endTime: '2025-02-25 00:00:00',
     createTime: '2025-02-18 08:45:00',
@@ -514,9 +529,11 @@ const originalOrders = ref<RawWorkOrderItem[]>([
     progress: 100,
     remainDays: 0
   }
-]);
+];
 
-const orders = ref<WorkOrderItem[]>([]);
+const originalOrders = ref<WorkOrderWithProgress[]>(mockData);
+
+const orders = ref<WorkOrderWithProgress[]>([]);
 
 // 日期计算常量
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -532,19 +549,38 @@ const getDateTimestamp = (dateStr: string): number => {
   return new Date(dateStr).getTime();
 };
 
-// 更新工单数据加载
+// 加载工序进度
+const loadProcessProgress = async (item: WorkOrderWithProgress) => {
+  try {
+    const progressData = await getWorkOrderProcessProgress(item.id);
+    item.processProgress = progressData;
+  } catch (error) {
+    console.error('加载工序进度失败:', error);
+    showToast('加载工序进度失败');
+  }
+};
+
+// 修改加载工单的方法，使用 WorkOrderWithProgress 类型
 const loadWorkOrders = async () => {
   try {
     const response = await getWorkOrders();
-    orders.value = response.data.map(convertWorkOrder);
+    // 将 API 返回的数据转换为带有工序进度属性的工单
+    orders.value = response.data.map(item => {
+      const converted = convertWorkOrder(item);
+      return {
+        ...converted,
+        processProgress: undefined // 初始时没有工序进度数据
+      };
+    });
   } catch (error) {
+    console.error('加载工单列表失败:', error);
     showToast('加载工单列表失败');
   }
 };
 
 // 更新筛选逻辑
-const filteredOrders = computed<WorkOrderItem[]>(() => {
-  return orders.value.filter((item: WorkOrderItem) => {
+const filteredOrders = computed<WorkOrderWithProgress[]>(() => {
+  return orders.value.filter((item: WorkOrderWithProgress) => {
     // 检查订单号
     if (filter.value.orderNumber && !item.orderNumber.includes(filter.value.orderNumber)) {
       return false;
@@ -609,83 +645,52 @@ const loadOrders = () => {
   // 设置加载状态
   loading.value = true;
   
-  // 实际应用中应该调用API
+  // 在实际应用中，会调用API获取数据
+  // 这里仅作演示，使用模拟数据
   setTimeout(() => {
-    // 根据筛选条件过滤数据
     let filtered = [...originalOrders.value];
     
     // 应用快速筛选
     if (quickFilter.value === 'urgent') {
-      filtered = filtered.filter(item => item.isUrgent);
+      filtered = filtered.filter(item => item.isUrgent === 1);
     } else if (quickFilter.value === 'today') {
       const today = new Date().toISOString().split('T')[0];
-      filtered = filtered.filter(item => item.startTime.startsWith(today) || item.endTime.startsWith(today));
+      filtered = filtered.filter(item => item.createTime.startsWith(today));
     }
     
-    // 应用状态筛选
+    // 应用标签筛选
     if (statusFilter.value !== 'all') {
-      const statusMap: { [key: string]: string } = {
+      const statusMap: Record<string, string> = {
         'pending': '未开始',
-        'processing': '执行中',
+        'processing': '进行中',
         'completed': '已结束'
       };
-      filtered = filtered.filter(item => item.status === statusMap[statusFilter.value]);
+      const targetStatus = statusMap[statusFilter.value];
+      filtered = filtered.filter(item => item.status === targetStatus);
     }
     
-    // 应用搜索
+    // 应用搜索文本筛选
     if (searchText.value) {
-      const keywords = searchText.value.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.orderNumber.toLowerCase().includes(keywords) || 
-        item.productName.toLowerCase().includes(keywords)
-      );
+      const searchLower = searchText.value.toLowerCase();
+      filtered = filtered.filter(item => {
+        return item.orderNumber.toLowerCase().includes(searchLower) || 
+               item.productName.toLowerCase().includes(searchLower);
+      });
     }
     
-    // 应用高级筛选
-    if (showFilterPopup.value || filter.value.orderNumber || filter.value.productName || filter.value.onlyUrgent || filter.value.startDate || filter.value.endDate) {
-      if (filter.value.orderNumber) {
-        filtered = filtered.filter(item => item.orderNumber.includes(filter.value.orderNumber));
-      }
-      
-      if (filter.value.productName) {
-        filtered = filtered.filter(item => item.productName.includes(filter.value.productName));
-      }
-      
-      if (filter.value.onlyUrgent) {
-        filtered = filtered.filter(item => Boolean(item.isUrgent));
-      }
-      
-      if (filter.value.startDate) {
-        const startDate = new Date(filter.value.startDate).getTime();
-        filtered = filtered.filter(item => new Date(item.createTime).getTime() >= startDate);
-      }
-      
-      if (filter.value.endDate) {
-        const endDate = new Date(filter.value.endDate).getTime() + Number(ONE_DAY_MS) - 1;
-        filtered = filtered.filter(item => new Date(item.createTime).getTime() <= endDate);
-      }
-    }
+    orders.value = filtered;
     
-    // 应用排序
-    filtered.sort((a, b) => {
-      if (sortMethod.value === 'createTime') {
-        return new Date(b.createTime).getTime() - new Date(a.createTime).getTime();
-      } else if (sortMethod.value === 'priority') {
-        return (a.isUrgent === b.isUrgent) ? 0 : a.isUrgent ? -1 : 1;
-      } else if (sortMethod.value === 'startTime') {
-        return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
-      } else if (sortMethod.value === 'endTime') {
-        return new Date(a.endTime).getTime() - new Date(b.endTime).getTime();
+    // 加载完工单后，自动加载所有工单的工序进度
+    orders.value.forEach(async (item) => {
+      try {
+        const progressData = await getWorkOrderProcessProgress(item.id);
+        item.processProgress = progressData;
+      } catch (error) {
+        console.error(`加载工单 ${item.id} 的工序进度失败:`, error);
       }
-      return 0;
     });
     
-    // 在赋值给orders.value之前，使用convertWorkOrder函数将filtered数组转换为WorkOrderItem
-    const processedOrders: WorkOrderItem[] = filtered.map(item => convertWorkOrder(item));
-
-    orders.value = processedOrders;
-    
-    // 更新加载状态
+    // 模拟加载完成
     loading.value = false;
     if (refreshing.value) refreshing.value = false;
     finished.value = true;
@@ -699,7 +704,7 @@ const loadOrders = () => {
 const updateStatusCounts = () => {
   statusCounts.total = originalOrders.value.length;
   statusCounts.pending = originalOrders.value.filter(item => item.status === '未开始').length;
-  statusCounts.processing = originalOrders.value.filter(item => item.status === '执行中').length;
+  statusCounts.processing = originalOrders.value.filter(item => item.status === '进行中').length;
   statusCounts.completed = originalOrders.value.filter(item => item.status === '已结束').length;
 };
 
@@ -718,7 +723,7 @@ const onLoad = () => {
 };
 
 // 方法: 查看工单详情
-const viewOrderDetail = (item: WorkOrderItem) => {
+const viewOrderDetail = (item: WorkOrderWithProgress) => {
   router.push({ 
     path: '/order-detail', 
     query: { id: item.id } 
@@ -750,10 +755,11 @@ const doSearch = () => {
 
 <style scoped lang="less">
 .work-order-list {
-  height: 100%;
+  height: 100vh;
+  background-color: #f5f5f5;
   display: flex;
   flex-direction: column;
-  background-color: #f5f5f5;
+  overflow: hidden;
 }
 
 // 控件区域
@@ -886,22 +892,30 @@ const doSearch = () => {
   flex: 1;
 }
 
-.process-progress {
-  padding-top: 8px;
+.process-progress-container {
+  margin: 12px 0;
   border-top: 1px dashed #ebedf0;
+  border-bottom: 1px dashed #ebedf0;
+  padding: 8px 0;
 }
 
-.progress-title {
-  font-size: 14px;
-  margin-bottom: 8px;
-}
-
-.progress-info {
+.loading-process-progress {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #969799;
-  margin-top: 4px;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.load-progress-button {
+  color: #1989fa;
+  font-size: 14px;
+  padding: 4px 8px;
+  border: 1px solid #1989fa;
+  border-radius: 4px;
+  cursor: pointer;
+  
+  &:active {
+    opacity: 0.7;
+  }
 }
 
 // 弹出框样式

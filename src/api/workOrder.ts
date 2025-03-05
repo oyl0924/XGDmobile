@@ -42,6 +42,13 @@ export interface WorkOrderResponse {
   message?: string;
 }
 
+// 工序进度类型
+export interface ProcessProgressItem {
+  id: string;
+  name: string;
+  progress: number;
+}
+
 // 数据转换函数
 export function convertWorkOrder(raw: RawWorkOrderItem): WorkOrderItem {
   return {
@@ -66,5 +73,24 @@ export function getWorkOrders() {
   return request<WorkOrderResponse>({
     url: '/api/work-orders',
     method: 'get'
+  });
+}
+
+// 获取工单工序进度
+export function getWorkOrderProcessProgress(workOrderId: string) {
+  // 这里是模拟数据，实际中应该通过API获取
+  const mockData: ProcessProgressItem[] = [
+    { id: '1', name: '开料', progress: 89 },
+    { id: '2', name: 'CNC', progress: 0 },
+    { id: '3', name: '扫光', progress: 0 },
+    { id: '4', name: '清洗', progress: 0 },
+    { id: '5', name: '包装', progress: 0 }
+  ];
+  
+  // 模拟API响应
+  return new Promise<ProcessProgressItem[]>((resolve) => {
+    setTimeout(() => {
+      resolve(mockData);
+    }, 300);
   });
 } 

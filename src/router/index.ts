@@ -3,7 +3,16 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/report',
+    redirect: '/login',
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Login.vue'),
+    meta: {
+      title: '登录',
+      keepAlive: false
+    }
   },
   {
     path: '/report',
@@ -39,6 +48,24 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: '我的',
       keepAlive: true
+    }
+  },
+  {
+    path: '/change-password',
+    name: 'ChangePassword',
+    component: () => import('@/views/ChangePassword.vue'),
+    meta: {
+      title: '修改密码',
+      keepAlive: false
+    }
+  },
+  {
+    path: '/update-log',
+    name: 'UpdateLog',
+    component: () => import('@/views/UpdateLog.vue'),
+    meta: {
+      title: '更新日志',
+      keepAlive: false
     }
   },
   {
