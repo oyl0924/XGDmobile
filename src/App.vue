@@ -65,9 +65,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast } from 'vant';
 import { useRouter } from 'vue-router';
+import { isWechat } from '@/utils/browser';
 
 // 为旧版相机API添加类型定义
 interface NavigatorWithLegacyUserMedia extends Navigator {
@@ -192,7 +193,32 @@ const requestCameraPermission = async () => {
 
 // 处理扫描页面显示
 const handleShowScanPage = () => {
-  showScanPage.value = true;
+  if (isWechat()) {
+    // 调用微信的扫一扫功能
+    if (window.wx && window.wx.scanQRCode) {
+      window.wx.scanQRCode({
+        needResult: 1, // 默认为0，扫描结果由微信处理，1则直接返回扫描结果
+        scanType: ["qrCode","barCode"], // 可以指定扫二维码还是条形码
+        success: function(res: any) {
+          const result = res.resultStr; // 当needResult 为 1 时，扫码返回的结果
+          // 处理扫码结果，可以根据实际需求跳转或其他操作
+          showToast(`扫码成功：${result}`);
+          
+          // 根据扫码结果处理工单信息，例如跳转到工单详情页
+          // 这里需要根据实际业务逻辑来实现
+        },
+        fail: function(error: any) {
+          showToast('扫码失败，请重试');
+          console.error('微信扫码失败:', error);
+        }
+      });
+    } else {
+      showToast('当前微信环境不支持扫一扫功能');
+    }
+  } else {
+    // 使用自带的扫码界面
+    showScanPage.value = true;
+  }
 };
 
 // 监听扫码页面显示状态
