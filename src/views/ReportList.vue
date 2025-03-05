@@ -268,6 +268,13 @@
       </div>
       <div class="select-actions">
         <Button 
+          plain
+          size="small" 
+          @click="toggleSelectAll"
+        >
+          {{ isAllSelected ? '全不选' : '全选' }}
+        </Button>
+        <Button 
           type="danger" 
           size="small" 
           :disabled="selectedCount === 0"
@@ -814,6 +821,21 @@ const unapproveSelected = () => {
 const goToReportCreate = () => {
   router.push('/work-report');
 };
+
+// 方法: 切换全选/全不选
+const toggleSelectAll = () => {
+  const newState = !isAllSelected.value;
+  // 根据newState设置所有项的选中状态
+  reports.value.forEach(item => {
+    item.selected = newState;
+  });
+};
+
+// 方法: 判断是否全选
+const isAllSelected = computed(() => {
+  if (reports.value.length === 0) return false;
+  return reports.value.every(item => item.selected);
+});
 </script>
 
 <style scoped lang="less">

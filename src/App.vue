@@ -44,6 +44,9 @@
             <div v-if="!hasCameraPermission" class="permission-button" @click="requestCameraPermission">
               获取权限
             </div>
+            <div v-else class="camera-switch-button" @click="showCameraSelector = true">
+              <Icon name="video" size="20" />
+            </div>
           </template>
         </NavBar>
         <div class="scan-content">
@@ -61,12 +64,36 @@
         </div>
       </div>
     </Popup>
+
+    <!-- 摄像头选择弹窗 -->
+    <Popup 
+      v-model:show="showCameraSelector" 
+      position="bottom"
+      :style="{ height: '40%' }"
+      round
+    >
+      <div class="camera-selector">
+        <div class="popup-title">
+          选择摄像头
+        </div>
+        <div class="camera-list">
+          <RadioGroup v-model="selectedCameraId">
+            <Cell v-for="camera in availableCameras" :key="camera.deviceId">
+              <Radio :name="camera.deviceId">{{ camera.label || `摄像头 ${availableCameras.indexOf(camera) + 1}` }}</Radio>
+            </Cell>
+          </RadioGroup>
+        </div>
+        <div class="popup-buttons">
+          <Button type="primary" block @click="switchCamera">确认</Button>
+        </div>
+      </div>
+    </Popup>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast } from 'vant';
+import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast, RadioGroup, Radio, Cell } from 'vant';
 import { useRouter } from 'vue-router';
 import { isWechat } from '@/utils/browser';
 
@@ -78,6 +105,12 @@ interface NavigatorWithLegacyUserMedia extends Navigator {
   msGetUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
 }
 
+// 摄像头设备类型
+interface CameraDevice {
+  deviceId: string;
+  label: string;
+}
+
 const router = useRouter();
 const active = ref('report');
 const showScanPage = ref(false);
@@ -85,10 +118,71 @@ const hasCameraPermission = ref(false);
 const videoRef = ref<HTMLVideoElement | null>(null);
 let mediaStream: MediaStream | null = null;
 
+// 摄像头选择相关
+const showCameraSelector = ref(false);
+const availableCameras = ref<CameraDevice[]>([]);
+const selectedCameraId = ref('');
+
+// 从本地存储中获取上次使用的摄像头ID
+onMounted(() => {
+  const savedCameraId = localStorage.getItem('selectedCameraId');
+  if (savedCameraId) {
+    selectedCameraId.value = savedCameraId;
+  }
+});
+
 // 导航函数
 const navigateTo = (path: string, name: string) => {
   active.value = name;
   router.push(path);
+};
+
+// 获取可用摄像头列表
+const getAvailableCameras = async () => {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      showToast('您的浏览器不支持获取设备列表');
+      return;
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices
+      .filter(device => device.kind === 'videoinput')
+      .map(device => ({
+        deviceId: device.deviceId,
+        label: device.label || `摄像头 ${availableCameras.value.length + 1}`
+      }));
+
+    availableCameras.value = cameras;
+
+    // 如果没有选中的摄像头或选中的摄像头不在可用列表中，则选择第一个
+    if (!selectedCameraId.value || !cameras.some(camera => camera.deviceId === selectedCameraId.value)) {
+      selectedCameraId.value = cameras.length > 0 ? cameras[0].deviceId : '';
+    }
+
+    return cameras;
+  } catch (error) {
+    console.error('获取摄像头列表失败:', error);
+    showToast('获取摄像头列表失败');
+    return [];
+  }
+};
+
+// 切换摄像头
+const switchCamera = async () => {
+  // 保存选择到本地存储
+  localStorage.setItem('selectedCameraId', selectedCameraId.value);
+  
+  // 关闭选择器
+  showCameraSelector.value = false;
+  
+  // 重新初始化相机
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+    mediaStream = null;
+  }
+  
+  await checkCameraPermission();
 };
 
 // 检查浏览器是否支持相机API
@@ -123,30 +217,24 @@ const checkCameraPermission = async () => {
       navigator.mediaDevices = {};
     }
 
+    // 首先获取可用摄像头列表
+    await getAvailableCameras();
+
     // 尝试获取相机流
     try {
-      // 首先尝试使用后置相机
-      mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment'
-        }
-      });
+      const constraints: MediaStreamConstraints = {
+        video: selectedCameraId.value
+          ? { deviceId: { exact: selectedCameraId.value } }
+          : { facingMode: 'environment' }
+      };
+
+      mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (error) {
-      console.log('后置相机访问失败，尝试使用前置相机:', error);
-      // 如果后置相机失败，尝试使用前置相机
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'user'
-          }
-        });
-      } catch (frontError) {
-        console.log('前置相机也访问失败:', frontError);
-        // 最后尝试使用任何可用的相机
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: true
-        });
-      }
+      console.log('指定摄像头访问失败，尝试使用其他摄像头:', error);
+      // 如果指定摄像头失败，尝试使用任何可用的相机
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true
+      });
     }
 
     if (videoRef.value && mediaStream) {
@@ -389,5 +477,39 @@ watch(showScanPage, async (newValue) => {
   height: 100%;
   object-fit: cover;
   border-radius: 8px;
+}
+
+.camera-switch-button {
+  font-size: 14px;
+  color: #1989fa;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+}
+
+.camera-selector {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+}
+
+.popup-title {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f2f2f2;
+}
+
+.camera-list {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.popup-buttons {
+  padding: 16px 0;
 }
 </style> 

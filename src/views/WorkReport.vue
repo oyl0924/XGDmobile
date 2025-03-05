@@ -1,7 +1,7 @@
 <template>
   <div class="work-report">
     <NavBar
-      title="报工"
+      title="提交报工"
       left-text="返回"
       right-text="提交"
       @click-left="goBack"
