@@ -84,7 +84,7 @@
                 <div class="info-row">
                   <span class="info-label">优先级:</span>
                   <span class="info-value">
-                    <Tag type="danger" v-if="item.isUrgent">加急</Tag>
+                    <Tag type="danger" v-if="item.isUrgent === 1">加急</Tag>
                     <span v-else>普通</span>
                   </span>
                 </div>
@@ -271,6 +271,27 @@ import {
   Dialog
 } from 'vant';
 import { formatDate as formatDateHelper } from '@/utils/date';
+import { 
+  RawWorkOrderItem, 
+  WorkOrderItem, 
+  convertWorkOrder,
+  getWorkOrders
+} from '@/api/workOrder';
+
+// 类型定义
+interface FilterCondition {
+  dateType: 'start' | 'end';
+  startDate: string | null;
+  endDate: string | null;
+  status: string;
+  searchText: string;
+  orderNumber: string;
+  productName: string;
+  onlyUrgent: boolean;
+}
+
+// 添加 TagType 类型定义
+type TagType = 'default' | 'primary' | 'success' | 'warning' | 'danger';
 
 const router = useRouter();
 
@@ -300,7 +321,7 @@ const getQuickFilterText = () => {
 };
 
 // 设置快速筛选
-const setQuickFilter = (filter) => {
+const setQuickFilter = (filter: string) => {
   quickFilter.value = filter;
 };
 
@@ -320,13 +341,13 @@ const statusCounts = reactive({
 });
 
 // 获取标签类型
-const getStatusType = (status) => {
+const getStatusType = (status: string): TagType => {
   switch (status) {
     case '未开始':
-      return 'default';
-    case '执行中':
+      return 'warning';
+    case '进行中':
       return 'primary';
-    case '已结束':
+    case '已完成':
       return 'success';
     default:
       return 'default';
@@ -338,7 +359,7 @@ const showSortPopup = ref(false);
 const sortMethod = ref('createTime');
 
 // 设置排序方法
-const setSortMethod = (method) => {
+const setSortMethod = (method: string) => {
   sortMethod.value = method;
 };
 
@@ -353,68 +374,70 @@ const applySort = () => {
 
 // 筛选弹出框
 const showFilterPopup = ref(false);
-const filter = reactive({
-  orderNumber: '',
-  productName: '',
+const filter = ref<FilterCondition>({
+  dateType: 'start',
   startDate: null,
   endDate: null,
-  onlyUrgent: false,
-  dateType: 'start'
+  status: '',
+  searchText: '',
+  orderNumber: '',
+  productName: '',
+  onlyUrgent: false
 });
 
 // 日期选择
 const showDatePicker = ref(false);
-const currentDate = ref(new Date());
+const currentDate = ref<string[]>([]);
 const datePickerTitle = ref('选择开始日期');
 
 // 打开日期选择器
 const openDatePicker = () => {
-  filter.dateType = 'start';
+  filter.value.dateType = 'start';
   datePickerTitle.value = '选择开始日期';
-  currentDate.value = filter.startDate || new Date();
+  currentDate.value = [filter.value.startDate || new Date().toISOString().split('T')[0], filter.value.endDate || new Date().toISOString().split('T')[0]];
   showDatePicker.value = true;
 };
 
 // 日期确认
-const onDateConfirm = (value) => {
-  if (filter.dateType === 'start') {
-    filter.startDate = value;
-    filter.dateType = 'end';
+const onDateConfirm = (value: string[]) => {
+  if (filter.value.dateType === 'start') {
+    filter.value.startDate = value[0];
+    filter.value.dateType = 'end';
     datePickerTitle.value = '选择结束日期';
-    currentDate.value = filter.endDate || new Date();
+    currentDate.value = value;
   } else {
-    filter.endDate = value;
+    filter.value.endDate = value[1];
     showDatePicker.value = false;
-    filter.dateType = 'start';
-    datePickerTitle.value = '选择开始日期';
+    filter.value.dateType = 'start';
   }
 };
 
 // 格式化日期
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string): string => {
   return formatDateHelper(new Date(dateStr), 'yyyy-MM-dd');
 };
 
 // 格式化日期范围
-const formatDateRange = (start, end) => {
+const formatDateRange = (start: string | null, end: string | null): string => {
   if (!start && !end) return '';
-  if (!start) return `至 ${formatDateHelper(end, 'yyyy-MM-dd')}`;
-  if (!end) return `${formatDateHelper(start, 'yyyy-MM-dd')} 起`;
-  return `${formatDateHelper(start, 'yyyy-MM-dd')} 至 ${formatDateHelper(end, 'yyyy-MM-dd')}`;
+  if (!start) return `至 ${formatDate(end!)}`;
+  if (!end) return `${formatDate(start)} 起`;
+  return `${formatDate(start)} 至 ${formatDate(end)}`;
 };
 
 // 重置筛选条件
 const resetFilter = () => {
-  Object.assign(filter, {
-    orderNumber: '',
-    productName: '',
+  filter.value = {
+    dateType: 'start',
     startDate: null,
     endDate: null,
-    onlyUrgent: false,
-    dateType: 'start'
-  });
-  datePickerTitle.value = '选择开始日期';
-  currentDate.value = new Date();
+    status: '',
+    searchText: '',
+    orderNumber: '',
+    productName: '',
+    onlyUrgent: false
+  };
+  currentDate.value = [new Date().toISOString().split('T')[0]];
   showToast('筛选条件已重置');
 };
 
@@ -430,7 +453,7 @@ const applyFilter = () => {
 };
 
 // 列表数据
-const originalOrders = ref([
+const originalOrders = ref<RawWorkOrderItem[]>([
   {
     id: '1',
     orderNumber: 'GD2025022800001',
@@ -493,11 +516,70 @@ const originalOrders = ref([
   }
 ]);
 
-const orders = ref([]);
+const orders = ref<WorkOrderItem[]>([]);
 
-// 筛选后的工单
-const filteredOrders = computed(() => {
-  return orders.value;
+// 日期计算常量
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+// 日期计算工具函数
+const getEndOfDay = (dateStr: string): number => {
+  const date = new Date(dateStr);
+  const timestamp = date.getTime();
+  return timestamp + ONE_DAY_MS - 1;
+};
+
+const getDateTimestamp = (dateStr: string): number => {
+  return new Date(dateStr).getTime();
+};
+
+// 更新工单数据加载
+const loadWorkOrders = async () => {
+  try {
+    const response = await getWorkOrders();
+    orders.value = response.data.map(convertWorkOrder);
+  } catch (error) {
+    showToast('加载工单列表失败');
+  }
+};
+
+// 更新筛选逻辑
+const filteredOrders = computed<WorkOrderItem[]>(() => {
+  return orders.value.filter((item: WorkOrderItem) => {
+    // 检查订单号
+    if (filter.value.orderNumber && !item.orderNumber.includes(filter.value.orderNumber)) {
+      return false;
+    }
+    
+    // 检查产品名称
+    if (filter.value.productName && !item.productName.includes(filter.value.productName)) {
+      return false;
+    }
+    
+    // 检查加急状态
+    if (filter.value.onlyUrgent && item.isUrgent === 0) {
+      return false;
+    }
+    
+    // 检查开始日期
+    if (filter.value.startDate) {
+      const startTimestamp = getDateTimestamp(filter.value.startDate);
+      const itemTimestamp = getDateTimestamp(item.createTime);
+      if (itemTimestamp < startTimestamp) {
+        return false;
+      }
+    }
+    
+    // 检查结束日期
+    if (filter.value.endDate) {
+      const endTimestamp = getEndOfDay(filter.value.endDate);
+      const itemTimestamp = getDateTimestamp(item.createTime);
+      if (itemTimestamp > endTimestamp) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
 });
 
 // 列表加载状态
@@ -542,7 +624,7 @@ const loadOrders = () => {
     
     // 应用状态筛选
     if (statusFilter.value !== 'all') {
-      const statusMap = {
+      const statusMap: { [key: string]: string } = {
         'pending': '未开始',
         'processing': '执行中',
         'completed': '已结束'
@@ -560,26 +642,26 @@ const loadOrders = () => {
     }
     
     // 应用高级筛选
-    if (showFilterPopup.value || filter.orderNumber || filter.productName || filter.onlyUrgent || filter.startDate || filter.endDate) {
-      if (filter.orderNumber) {
-        filtered = filtered.filter(item => item.orderNumber.includes(filter.orderNumber));
+    if (showFilterPopup.value || filter.value.orderNumber || filter.value.productName || filter.value.onlyUrgent || filter.value.startDate || filter.value.endDate) {
+      if (filter.value.orderNumber) {
+        filtered = filtered.filter(item => item.orderNumber.includes(filter.value.orderNumber));
       }
       
-      if (filter.productName) {
-        filtered = filtered.filter(item => item.productName.includes(filter.productName));
+      if (filter.value.productName) {
+        filtered = filtered.filter(item => item.productName.includes(filter.value.productName));
       }
       
-      if (filter.onlyUrgent) {
-        filtered = filtered.filter(item => item.isUrgent);
+      if (filter.value.onlyUrgent) {
+        filtered = filtered.filter(item => Boolean(item.isUrgent));
       }
       
-      if (filter.startDate) {
-        const startDate = new Date(filter.startDate).getTime();
+      if (filter.value.startDate) {
+        const startDate = new Date(filter.value.startDate).getTime();
         filtered = filtered.filter(item => new Date(item.createTime).getTime() >= startDate);
       }
       
-      if (filter.endDate) {
-        const endDate = new Date(filter.endDate).getTime() + 24 * 60 * 60 * 1000 - 1; // 结束日期的最后一毫秒
+      if (filter.value.endDate) {
+        const endDate = new Date(filter.value.endDate).getTime() + Number(ONE_DAY_MS) - 1;
         filtered = filtered.filter(item => new Date(item.createTime).getTime() <= endDate);
       }
     }
@@ -589,7 +671,7 @@ const loadOrders = () => {
       if (sortMethod.value === 'createTime') {
         return new Date(b.createTime).getTime() - new Date(a.createTime).getTime();
       } else if (sortMethod.value === 'priority') {
-        return b.isUrgent - a.isUrgent;
+        return (a.isUrgent === b.isUrgent) ? 0 : a.isUrgent ? -1 : 1;
       } else if (sortMethod.value === 'startTime') {
         return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
       } else if (sortMethod.value === 'endTime') {
@@ -598,7 +680,10 @@ const loadOrders = () => {
       return 0;
     });
     
-    orders.value = filtered;
+    // 在赋值给orders.value之前，使用convertWorkOrder函数将filtered数组转换为WorkOrderItem
+    const processedOrders: WorkOrderItem[] = filtered.map(item => convertWorkOrder(item));
+
+    orders.value = processedOrders;
     
     // 更新加载状态
     loading.value = false;
@@ -633,7 +718,7 @@ const onLoad = () => {
 };
 
 // 方法: 查看工单详情
-const viewOrderDetail = (item) => {
+const viewOrderDetail = (item: WorkOrderItem) => {
   router.push({ 
     path: '/order-detail', 
     query: { id: item.id } 

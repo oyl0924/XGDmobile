@@ -6,10 +6,6 @@ import router from './router/index';
 // 全局样式
 import './assets/styles/global.less';
 
-// Ant Design Vue
-import Antd from 'ant-design-vue';
-import 'ant-design-vue/dist/reset.css';
-
 // Vant UI
 import { 
   Popup, 
@@ -28,7 +24,6 @@ const app = createApp(App);
 
 app.use(createPinia());
 app.use(router);
-app.use(Antd);
 
 // 注册Vant组件
 app.use(Popup);

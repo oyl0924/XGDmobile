@@ -12,7 +12,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "ant-design-vue": "latest",
     "antd-mobile": "latest",
     "axios": "latest",
     "dayjs": "latest",
@@ -22,7 +21,8 @@
     "vue-router": "latest"
   },
   "devDependencies": {
-    "@types/node": "latest",
+    "@types/node": "^22.13.9",
+    "@types/webpack-env": "^1.18.8",
     "@vitejs/plugin-vue": "latest",
     "less": "latest",
     "typescript": "latest",

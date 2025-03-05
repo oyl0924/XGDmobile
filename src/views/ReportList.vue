@@ -407,8 +407,8 @@ const filter = reactive({
   orderNumber: '',
   productName: '',
   processName: '',
-  startDate: null,
-  endDate: null,
+  startDate: null as Date | null,
+  endDate: null as Date | null,
   dateType: 'start' // 'start': 开始时间, 'end': 结束时间
 });
 
