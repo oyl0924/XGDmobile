@@ -3,6 +3,12 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router/index';
 
+// PWA 支持
+import { registerSW } from './pwa';
+
+// 注册 Service Worker
+registerSW();
+
 // 全局样式
 import './assets/styles/global.less';
 

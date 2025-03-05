@@ -27,6 +27,7 @@
     "less": "latest",
     "typescript": "latest",
     "vite": "latest",
+    "vite-plugin-pwa": "^0.21.1",
     "vue-tsc": "^2.2.8"
   }
 }
