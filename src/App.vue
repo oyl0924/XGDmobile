@@ -93,7 +93,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed, onUnmounted } from 'vue';
-import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast, RadioGroup, Radio, Cell, Dialog } from 'vant';
+import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast, RadioGroup, Radio, Cell, Dialog, showDialog } from 'vant';
 import { useRouter, useRoute } from 'vue-router';
 import { isWechat } from '@/utils/browser';
 
@@ -332,7 +332,7 @@ const handleShowScanPage = () => {
           const result = res.resultStr; // 当needResult 为 1 时，扫码返回的结果
           // 显示扫码结果弹窗
           scanResult.value = result;
-          Dialog.confirm({
+          showDialog({
             title: '扫码结果',
             message: result,
             confirmButtonText: '确定',
@@ -358,7 +358,7 @@ const handleScanResult = (result: string) => {
   // 显示扫码结果弹窗
   scanResult.value = result;
   showScanPage.value = false; // 关闭扫码页面
-  Dialog.confirm({
+  showDialog({
     title: '扫码结果',
     message: result,
     confirmButtonText: '确定',

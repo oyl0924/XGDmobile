@@ -773,7 +773,7 @@ const doSearch = () => {
 
 // 控件区域
 .control-area {
-  padding: 8px 12px;
+  padding: 10px 12px;
   background-color: #fff;
   position: sticky;
   top: 0;
@@ -902,10 +902,10 @@ const doSearch = () => {
 }
 
 .process-progress-container {
-  margin: 12px 0;
+  margin: 1px 0px 8px 0px;
   border-top: 1px dashed #ebedf0;
   border-bottom: 1px dashed #ebedf0;
-  padding: 8px 0;
+  padding: 5px 0px 0px 0px;
 }
 
 .loading-process-progress {

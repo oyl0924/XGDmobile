@@ -16,13 +16,13 @@
     <!-- 功能菜单区 -->
     <div class="menu-list">
       <Cell class="menu-item" title="修改密码" is-link @click="navigateTo('/change-password')" />
-      <Cell class="menu-item" title="问题反馈" is-link @click="handleFeedback" />
-      <Cell class="menu-item" title="服务热线" is-link @click="handleCallService">
+      <Cell class="menu-item" title="服务热线">
         <template #value>
-          <span class="phone-number">0755-82926540</span>
+          <a href="tel:0755-82926540" class="phone-number">0755-82926540</a>
         </template>
       </Cell>
       <Cell class="menu-item" title="更新日志" is-link @click="navigateTo('/update-log')" />
+      <Cell class="menu-item" title="清空缓存" is-link @click="clearCache" />
     </div>
     
     <!-- 退出登录按钮 -->
@@ -43,14 +43,28 @@ const navigateTo = (path: string) => {
   router.push(path);
 };
 
-// 处理问题反馈
-const handleFeedback = () => {
-  window.open('https://cqmgl3elfe.feishu.cn/share/base/form/shrcnxtqirRCxTql5wa9MWtoycf', '_blank');
-};
-
-// 处理拨打服务热线
-const handleCallService = () => {
-  window.location.href = 'tel:0755-82926540';
+// 清空缓存
+const clearCache = () => {
+  showDialog({
+    title: '提示',
+    message: '确定要清空缓存吗？清空后将返回登录页面',
+    showCancelButton: true,
+    confirmButtonText: '确定',
+    cancelButtonText: '取消'
+  }).then(() => {
+    // 清除所有本地存储数据
+    localStorage.clear();
+    
+    // 显示提示
+    showToast('缓存已清空');
+    
+    // 返回登录页
+    setTimeout(() => {
+      router.replace('/login');
+    }, 1000);
+  }).catch(() => {
+    // 取消操作
+  });
 };
 
 // 处理退出登录
@@ -153,7 +167,8 @@ const handleLogout = () => {
 }
 
 .phone-number {
-  color: #666;
+  color: #1989fa;
+  text-decoration: none;
 }
 
 .logout-button-container {

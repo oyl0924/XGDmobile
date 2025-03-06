@@ -105,7 +105,7 @@
       
       <div class="login-options">
         <Checkbox v-model="rememberMe">记住密码</Checkbox>
-        <div class="forgot-password" @click="handleForgotPassword">忘记密码</div>
+        <div class="forgot-password" @click="handleForgotPassword">忘记密码？</div>
       </div>
       
       <Button type="primary" block size="large" @click="handleLogin">登 录</Button>
@@ -140,45 +140,89 @@ const account = ref({
   password: ''
 });
 
+// 安全的localStorage操作函数
+const safeStorage = {
+  getItem(key: string, defaultValue: string = '') {
+    try {
+      const value = localStorage.getItem(key);
+      return value !== null ? value : defaultValue;
+    } catch (e) {
+      console.warn('Failed to read from localStorage:', e);
+      return defaultValue;
+    }
+  },
+  setItem(key: string, value: string) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (e) {
+      console.warn('Failed to write to localStorage:', e);
+      return false;
+    }
+  },
+  removeItem(key: string) {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (e) {
+      console.warn('Failed to remove from localStorage:', e);
+      return false;
+    }
+  }
+};
+
 // 在组件挂载时，检查是否有保存的登录信息
 onMounted(() => {
-  // 获取上次登录类型
-  const savedLoginType = localStorage.getItem('loginType');
-  if (savedLoginType) {
-    loginType.value = savedLoginType;
-  }
+  console.log("Login page mounted, checking stored login info");
+  
+  // 获取上次登录类型，并设置默认值
+  const savedLoginType = safeStorage.getItem('loginType', 'account');
+  console.log("Saved login type:", savedLoginType);
+  loginType.value = savedLoginType;
 
   // 检查是否记住密码
-  const savedRememberMe = localStorage.getItem('rememberMe');
+  const savedRememberMe = safeStorage.getItem('rememberMe');
   if (savedRememberMe === 'true') {
+    console.log("Remember me is enabled");
     rememberMe.value = true;
     
     // 获取保存的完整登录信息（包含密码）
-    const savedLoginInfo = localStorage.getItem('loginInfo');
+    const savedLoginInfo = safeStorage.getItem('loginInfo');
     if (savedLoginInfo) {
-      const loginInfo = JSON.parse(savedLoginInfo);
-      loginType.value = loginInfo.loginType;
-      
-      if (loginType.value === 'phone') {
-        phone.value = loginInfo.data;
-      } else {
-        account.value = loginInfo.data;
+      try {
+        const loginInfo = JSON.parse(savedLoginInfo);
+        console.log("Restoring login info for type:", loginInfo.loginType);
+        loginType.value = loginInfo.loginType;
+        
+        if (loginType.value === 'phone') {
+          phone.value = loginInfo.data;
+        } else {
+          account.value = loginInfo.data;
+        }
+      } catch (e) {
+        console.error("Failed to parse saved login info:", e);
       }
     }
   } else {
+    console.log("Remember me is disabled, filling only account/mobile");
     // 如果没有记住密码，但有上次登录记录，只填充账号不填充密码
     if (loginType.value === 'phone') {
-      const lastLoginMobile = localStorage.getItem('lastLoginMobile');
+      const lastLoginMobile = safeStorage.getItem('lastLoginMobile');
       if (lastLoginMobile) {
+        console.log("Filling last used mobile:", lastLoginMobile);
         phone.value.mobile = lastLoginMobile;
+        phone.value.password = ''; // 确保密码为空
       }
     } else {
-      const lastLoginUsername = localStorage.getItem('lastLoginUsername');
-      const lastLoginFactoryCode = localStorage.getItem('lastLoginFactoryCode');
+      const lastLoginUsername = safeStorage.getItem('lastLoginUsername');
+      const lastLoginFactoryCode = safeStorage.getItem('lastLoginFactoryCode');
       if (lastLoginUsername) {
+        console.log("Filling last used username:", lastLoginUsername);
         account.value.username = lastLoginUsername;
+        account.value.password = ''; // 确保密码为空
       }
       if (lastLoginFactoryCode) {
+        console.log("Filling last used factory code:", lastLoginFactoryCode);
         account.value.factoryCode = lastLoginFactoryCode;
       }
     }
@@ -207,20 +251,24 @@ const handleLogin = async () => {
       }
       
       // 更新当前登录方式为手机号
-      localStorage.setItem('loginType', 'phone');
+      safeStorage.setItem('loginType', 'phone');
+      console.log("Setting login type to phone");
       
       // 如果选择了记住密码，保存登录信息
       if (rememberMe.value) {
-        localStorage.setItem('rememberMe', 'true');
-        localStorage.setItem('loginInfo', JSON.stringify({
+        safeStorage.setItem('rememberMe', 'true');
+        const loginInfoStr = JSON.stringify({
           loginType: 'phone',
           data: phone.value
-        }));
+        });
+        safeStorage.setItem('loginInfo', loginInfoStr);
+        console.log("Saved phone login info with password");
       } else {
         // 如果取消记住密码，清除之前保存的密码，但保留登录类型和账号
-        localStorage.removeItem('rememberMe');
-        localStorage.setItem('lastLoginMobile', phone.value.mobile);
-        localStorage.removeItem('loginInfo');
+        safeStorage.removeItem('rememberMe');
+        safeStorage.removeItem('loginInfo');
+        safeStorage.setItem('lastLoginMobile', phone.value.mobile);
+        console.log("Cleared saved password, but kept mobile number");
       }
       
       // 模拟登录成功
@@ -241,21 +289,25 @@ const handleLogin = async () => {
       }
       
       // 更新当前登录方式为账号
-      localStorage.setItem('loginType', 'account');
+      safeStorage.setItem('loginType', 'account');
+      console.log("Setting login type to account");
       
       // 如果选择了记住密码，保存登录信息
       if (rememberMe.value) {
-        localStorage.setItem('rememberMe', 'true');
-        localStorage.setItem('loginInfo', JSON.stringify({
+        safeStorage.setItem('rememberMe', 'true');
+        const loginInfoStr = JSON.stringify({
           loginType: 'account',
           data: account.value
-        }));
+        });
+        safeStorage.setItem('loginInfo', loginInfoStr);
+        console.log("Saved account login info with password");
       } else {
         // 如果取消记住密码，清除之前保存的密码，但保留登录类型和账号
-        localStorage.removeItem('rememberMe');
-        localStorage.setItem('lastLoginUsername', account.value.username);
-        localStorage.setItem('lastLoginFactoryCode', account.value.factoryCode);
-        localStorage.removeItem('loginInfo');
+        safeStorage.removeItem('rememberMe');
+        safeStorage.removeItem('loginInfo');
+        safeStorage.setItem('lastLoginUsername', account.value.username);
+        safeStorage.setItem('lastLoginFactoryCode', account.value.factoryCode);
+        console.log("Cleared saved password, but kept account info");
       }
       
       // 模拟登录成功
@@ -263,7 +315,7 @@ const handleLogin = async () => {
     }
     
     // 保存登录状态
-    localStorage.setItem('token', 'mock-token-' + Date.now());
+    safeStorage.setItem('token', 'mock-token-' + Date.now());
     
     // 登录成功，跳转到首页
     setTimeout(() => {
@@ -284,7 +336,7 @@ const handleForgotPassword = () => {
 
 <style scoped>
 .login-container {
-  min-height: 100vh;
+  min-height: 81vh;
   display: flex;
   flex-direction: column;
   padding: 40px 24px;
@@ -374,5 +426,21 @@ const handleForgotPassword = () => {
   font-size: 12px;
   color: #969799;
   line-height: 1.5;
+}
+
+/* 调整Field组件的标题和输入框宽度比例 */
+:deep(.van-field) {
+  --van-field-label-width: 4em;
+  --van-field-label-margin-right: 12px;
+}
+
+:deep(.van-field__label) {
+  width: var(--van-field-label-width);
+  flex: none;
+  margin-right: var(--van-field-label-margin-right);
+}
+
+:deep(.van-field__value) {
+  flex: 1;
 }
 </style> 
