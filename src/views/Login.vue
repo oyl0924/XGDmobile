@@ -142,11 +142,18 @@ const account = ref({
 
 // 在组件挂载时，检查是否有保存的登录信息
 onMounted(() => {
+  // 获取上次登录类型
+  const savedLoginType = localStorage.getItem('loginType');
+  if (savedLoginType) {
+    loginType.value = savedLoginType;
+  }
+
+  // 检查是否记住密码
   const savedRememberMe = localStorage.getItem('rememberMe');
   if (savedRememberMe === 'true') {
     rememberMe.value = true;
     
-    // 获取保存的登录信息
+    // 获取保存的完整登录信息（包含密码）
     const savedLoginInfo = localStorage.getItem('loginInfo');
     if (savedLoginInfo) {
       const loginInfo = JSON.parse(savedLoginInfo);
@@ -156,6 +163,23 @@ onMounted(() => {
         phone.value = loginInfo.data;
       } else {
         account.value = loginInfo.data;
+      }
+    }
+  } else {
+    // 如果没有记住密码，但有上次登录记录，只填充账号不填充密码
+    if (loginType.value === 'phone') {
+      const lastLoginMobile = localStorage.getItem('lastLoginMobile');
+      if (lastLoginMobile) {
+        phone.value.mobile = lastLoginMobile;
+      }
+    } else {
+      const lastLoginUsername = localStorage.getItem('lastLoginUsername');
+      const lastLoginFactoryCode = localStorage.getItem('lastLoginFactoryCode');
+      if (lastLoginUsername) {
+        account.value.username = lastLoginUsername;
+      }
+      if (lastLoginFactoryCode) {
+        account.value.factoryCode = lastLoginFactoryCode;
       }
     }
   }
@@ -170,10 +194,20 @@ const handleLogin = async () => {
         showToast('请输入手机号码');
         return;
       }
+      
+      // 校验手机号长度必须为11位
+      if (phone.value.mobile.length !== 11) {
+        showToast('手机号必须为11位');
+        return;
+      }
+      
       if (!phone.value.password) {
         showToast('请输入密码');
         return;
       }
+      
+      // 更新当前登录方式为手机号
+      localStorage.setItem('loginType', 'phone');
       
       // 如果选择了记住密码，保存登录信息
       if (rememberMe.value) {
@@ -183,8 +217,9 @@ const handleLogin = async () => {
           data: phone.value
         }));
       } else {
-        // 如果没有选择记住密码，清除之前保存的信息
+        // 如果取消记住密码，清除之前保存的密码，但保留登录类型和账号
         localStorage.removeItem('rememberMe');
+        localStorage.setItem('lastLoginMobile', phone.value.mobile);
         localStorage.removeItem('loginInfo');
       }
       
@@ -205,6 +240,9 @@ const handleLogin = async () => {
         return;
       }
       
+      // 更新当前登录方式为账号
+      localStorage.setItem('loginType', 'account');
+      
       // 如果选择了记住密码，保存登录信息
       if (rememberMe.value) {
         localStorage.setItem('rememberMe', 'true');
@@ -213,8 +251,10 @@ const handleLogin = async () => {
           data: account.value
         }));
       } else {
-        // 如果没有选择记住密码，清除之前保存的信息
+        // 如果取消记住密码，清除之前保存的密码，但保留登录类型和账号
         localStorage.removeItem('rememberMe');
+        localStorage.setItem('lastLoginUsername', account.value.username);
+        localStorage.setItem('lastLoginFactoryCode', account.value.factoryCode);
         localStorage.removeItem('loginInfo');
       }
       

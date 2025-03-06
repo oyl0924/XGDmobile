@@ -7,7 +7,7 @@
           <img src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" alt="用户头像">
         </div>
         <div class="user-details">
-          <div class="username">张三</div>
+          <div class="username">张三 <span class="user-role">管理员</span></div>
           <div class="phone">138****6666</div>
         </div>
       </div>
@@ -84,12 +84,12 @@ const handleLogout = () => {
 }
 
 .user-info-section {
-  height: 180px;
+  height: 80px;
   background: linear-gradient(to right, #1989fa, #39bbff);
   position: relative;
   padding: 20px;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .user-info {
@@ -122,6 +122,18 @@ const handleLogout = () => {
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.user-role {
+  font-size: 12px;
+  background-color: rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+  font-weight: normal;
 }
 
 .phone {

@@ -5,7 +5,7 @@
       <!-- 标准模式：快速筛选+三个按钮 -->
       <div v-if="!isSearchMode" class="standard-controls">
         <div class="filter-dropdown">
-          <div class="dropdown-title" @click="showQuickFilterPopup = true">
+          <div class="dropdown-title" @click="openQuickFilterPopup">
             {{ getQuickFilterText() }}
             <Icon name="arrow-down" size="14" />
           </div>
@@ -130,7 +130,7 @@
       closeable
     >
       <div class="popup-title">快速筛选</div>
-      <RadioGroup v-model="quickFilter" class="filter-options">
+      <RadioGroup v-model="tempQuickFilter" class="filter-options">
         <Cell title="全部工单" clickable @click="setQuickFilter('all')">
           <template #right-icon>
             <Radio name="all" />
@@ -314,6 +314,7 @@ const router = useRouter();
 const isSearchMode = ref(false);
 const searchText = ref('');
 const quickFilter = ref('all');
+const tempQuickFilter = ref('all'); // 临时存储选择的过滤器
 const showQuickFilterPopup = ref(false);
 const quickFilterOptions = [
   { text: '全部工单', value: 'all' },
@@ -335,13 +336,21 @@ const getQuickFilterText = () => {
   }
 };
 
-// 设置快速筛选
+// 打开快速筛选弹窗
+const openQuickFilterPopup = () => {
+  tempQuickFilter.value = quickFilter.value; // 初始化临时过滤器为当前选中的值
+  showQuickFilterPopup.value = true;
+};
+
+// 设置临时快速筛选选项
 const setQuickFilter = (filter: string) => {
-  quickFilter.value = filter;
+  tempQuickFilter.value = filter;
+  // 不再关闭弹窗和加载数据，只在点击确认按钮时执行
 };
 
 // 应用快速筛选
 const applyQuickFilter = () => {
+  quickFilter.value = tempQuickFilter.value; // 应用临时选择的过滤器
   showQuickFilterPopup.value = false;
   loadOrders();
 };

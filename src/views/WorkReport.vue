@@ -3,10 +3,31 @@
     <NavBar
       title="提交报工"
       left-text="返回"
-      right-text="提交"
       @click-left="goBack"
-      @click-right="submitReport"
-    />
+    >
+      <template #right>
+        <div class="nav-right">
+          <Button 
+            class="scan-button" 
+            size="small" 
+            type="primary" 
+            plain 
+            @click="openAppScanPage"
+          >
+            <Icon name="scan" class="button-icon" />
+            <span class="button-text">扫码</span>
+          </Button>
+          <Button 
+            class="submit-button" 
+            size="small" 
+            type="primary" 
+            @click="submitReport"
+          >
+            <span class="button-text">提交</span>
+          </Button>
+        </div>
+      </template>
+    </NavBar>
     
     <div class="page-container">
       <!-- 选择栏 -->
@@ -245,13 +266,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { showToast, NavBar, List, Cell, Tag, Image, Radio, RadioGroup, Icon, Popup, Stepper } from 'vant';
+import { 
+  NavBar, List, Cell, Tag, Image, Radio, RadioGroup, Icon, Popup, Stepper, 
+  showToast, showDialog, DatePicker, Button 
+} from 'vant';
 import type { WorkOrder, Process, Worker, DefectReason } from '@/api/types';
 import WorkOrderSelector from '@/components/WorkOrderSelector.vue';
 import ProcessSelector from '@/components/ProcessSelector.vue';
 import WorkerSelector from '@/components/WorkerSelector.vue';
+import dayjs from 'dayjs';
+import DefectReasonSelector from '@/components/DefectReasonSelector.vue';
 
 const router = useRouter();
 
@@ -442,7 +468,9 @@ const submitReport = () => {
     return;
   }
   
-  if (defectQuantity.value && defectQuantity.value > 0 && !selectedDefectReason.value) {
+  // 修复不良品原因验证逻辑
+  // 当defectQuantity大于0时，检查是否至少选择了一个不良品原因
+  if (defectQuantity.value && defectQuantity.value > 0 && !hasDefects.value) {
     showToast({
       message: '请选择不良品原因',
       position: 'bottom',
@@ -510,6 +538,23 @@ const handleStatusChange = (value: string) => {
     message: `工序状态已切换为：${value}`,
     position: 'bottom',
   });
+};
+
+// 为全局App对象声明类型
+declare global {
+  interface Window {
+    $app?: {
+      handleShowScanPage: () => void;
+      setScanResultCallback?: (callback: (result: string) => void) => void;
+    };
+  }
+}
+
+// 打开扫码页面
+const openAppScanPage = () => {
+  // 直接使用全局事件总线通知App.vue
+  const event = new CustomEvent('openScanPage');
+  window.dispatchEvent(event);
 };
 </script>
 
@@ -683,5 +728,33 @@ const handleStatusChange = (value: string) => {
       color: #666;
     }
   }
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scan-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px !important;
+  height: 28px;
+}
+
+.button-icon {
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+.button-text {
+  font-size: 12px;
+}
+
+.submit-button {
+  padding: 4px 10px !important;
+  height: 28px;
 }
 </style> 

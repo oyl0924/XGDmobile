@@ -92,8 +92,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue';
-import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast, RadioGroup, Radio, Cell } from 'vant';
+import { ref, watch, onMounted, computed, onUnmounted } from 'vue';
+import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast, RadioGroup, Radio, Cell, Dialog } from 'vant';
 import { useRouter, useRoute } from 'vue-router';
 import { isWechat } from '@/utils/browser';
 
@@ -113,10 +113,11 @@ interface CameraDevice {
 
 const router = useRouter();
 const route = useRoute();
-const active = ref('report');
+const active = ref('work-order');
 const showScanPage = ref(false);
 const hasCameraPermission = ref(false);
 const videoRef = ref<HTMLVideoElement | null>(null);
+const scanResult = ref(''); // 扫码结果
 let mediaStream: MediaStream | null = null;
 
 // 摄像头选择相关
@@ -131,12 +132,44 @@ const showTabBar = computed(() => {
   return mainPages.includes(route.path);
 });
 
+// 根据当前路由更新active状态
+const updateActiveByRoute = () => {
+  const path = route.path;
+  if (path.includes('/work-order')) {
+    active.value = 'work-order';
+  } else if (path.includes('/task')) {
+    active.value = 'task';
+  } else if (path.includes('/report')) {
+    active.value = 'report';
+  } else if (path.includes('/my-profile')) {
+    active.value = 'my-profile';
+  }
+};
+
+// 监听路由变化
+watch(() => route.path, (newPath) => {
+  updateActiveByRoute();
+});
+
 // 从本地存储中获取上次使用的摄像头ID
 onMounted(() => {
   const savedCameraId = localStorage.getItem('selectedCameraId');
   if (savedCameraId) {
     selectedCameraId.value = savedCameraId;
   }
+  
+  // 初始化时更新一次active状态
+  updateActiveByRoute();
+  
+  // 监听扫码请求事件
+  window.addEventListener('openScanPage', () => {
+    handleShowScanPage();
+  });
+});
+
+// 在组件销毁时移除事件监听
+onUnmounted(() => {
+  window.removeEventListener('openScanPage', handleShowScanPage);
 });
 
 // 导航函数
@@ -297,11 +330,14 @@ const handleShowScanPage = () => {
         scanType: ["qrCode","barCode"], // 可以指定扫二维码还是条形码
         success: function(res: any) {
           const result = res.resultStr; // 当needResult 为 1 时，扫码返回的结果
-          // 处理扫码结果，可以根据实际需求跳转或其他操作
-          showToast(`扫码成功：${result}`);
-          
-          // 根据扫码结果处理工单信息，例如跳转到工单详情页
-          // 这里需要根据实际业务逻辑来实现
+          // 显示扫码结果弹窗
+          scanResult.value = result;
+          Dialog.confirm({
+            title: '扫码结果',
+            message: result,
+            confirmButtonText: '确定',
+            showCancelButton: false,
+          });
         },
         fail: function(error: any) {
           showToast('扫码失败，请重试');
@@ -317,11 +353,70 @@ const handleShowScanPage = () => {
   }
 };
 
+// 处理扫码结果
+const handleScanResult = (result: string) => {
+  // 显示扫码结果弹窗
+  scanResult.value = result;
+  showScanPage.value = false; // 关闭扫码页面
+  Dialog.confirm({
+    title: '扫码结果',
+    message: result,
+    confirmButtonText: '确定',
+    showCancelButton: false,
+  });
+};
+
+// 在此添加扫码解码逻辑
+const processImage = () => {
+  if (!videoRef.value || !mediaStream) return;
+  
+  // 创建canvas上下文
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  
+  // 设置canvas尺寸为视频尺寸
+  canvas.width = videoRef.value.videoWidth;
+  canvas.height = videoRef.value.videoHeight;
+  
+  // 将视频帧绘制到canvas上
+  context.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height);
+  
+  // 创建图像数据
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  
+  try {
+    // 假设我们使用jsQR库进行解码
+    // 这里需要实际集成二维码识别库，例如jsQR, zxing等
+    // const code = jsQR(imageData.data, imageData.width, imageData.height);
+    
+    // 为了模拟效果，我们这里直接设置一个模拟结果
+    // 实际项目中，应该替换为真实的二维码识别逻辑
+    const simulatedResult = "模拟扫码结果-" + Date.now();
+    
+    // 如果识别到二维码
+    handleScanResult(simulatedResult);
+    
+    // 真实逻辑下应该是：
+    // if (code) {
+    //   handleScanResult(code.data);
+    // } else {
+    //   // 继续扫描
+    //   setTimeout(processImage, 500);
+    // }
+  } catch (error) {
+    console.error('二维码识别失败:', error);
+    setTimeout(processImage, 500);
+  }
+};
+
 // 监听扫码页面显示状态
 watch(showScanPage, async (newValue) => {
   if (newValue) {
     // 当打开扫码页面时，检查权限并尝试初始化相机
     await checkCameraPermission();
+    // 开始处理视频帧以识别二维码
+    setTimeout(processImage, 1000); // 延迟1秒后开始处理，确保相机已初始化
   } else {
     // 当关闭扫码页面时，清理相机资源
     if (mediaStream) {
