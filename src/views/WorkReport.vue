@@ -7,16 +7,13 @@
     >
       <template #right>
         <div class="nav-right">
-          <Button 
-            class="scan-button" 
-            size="small" 
-            type="primary" 
-            plain 
+          <div 
+            class="scan-button-container"
             @click="openAppScanPage"
           >
             <Icon name="scan" class="button-icon" />
             <span class="button-text">扫码</span>
-          </Button>
+          </div>
         </div>
       </template>
     </NavBar>
@@ -741,17 +738,20 @@ const openAppScanPage = () => {
   gap: 8px;
 }
 
-.scan-button {
+.scan-button-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px !important;
-  height: 28px;
+  border: 1px solid #1989fa;
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: #1989fa;
+  background-color: #fff;
 }
 
 .button-icon {
   font-size: 14px;
-  margin-right: 4px;
+  margin-right: 6px;
 }
 
 .button-text {

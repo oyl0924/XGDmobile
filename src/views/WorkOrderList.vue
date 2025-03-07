@@ -3,7 +3,7 @@
     <!-- 控件区域 -->
     <div class="control-area">
       <!-- 标准模式：快速筛选+三个按钮 -->
-      <div v-if="!isSearchMode" class="standard-controls">
+      <div class="standard-controls">
         <div class="filter-dropdown">
           <div class="dropdown-title" @click="openQuickFilterPopup">
             {{ getQuickFilterText() }}
@@ -11,27 +11,10 @@
           </div>
         </div>
         <div class="control-buttons">
-          <Icon name="search" size="20" class="control-icon" @click="toggleSearchMode" />
-          <Icon name="sort" size="20" class="control-icon" @click="showSortPopup = true" />
+          <Icon name="search" size="20" class="control-icon" @click="showSearchPopup = true" />
           <Icon name="filter-o" size="20" class="control-icon" @click="showFilterPopup = true" />
+          <Icon name="sort" size="20" class="control-icon" @click="showSortPopup = true" />
         </div>
-      </div>
-      
-      <!-- 搜索模式：搜索框+搜索按钮+取消按钮 -->
-      <div v-else class="search-controls">
-        <Field
-          v-model="searchText"
-          placeholder="搜索工单号/产品名称"
-          clearable
-          class="search-field"
-          @keypress.enter="doSearch"
-        >
-          <template #left-icon>
-            <Icon name="search" size="18" />
-          </template>
-        </Field>
-        <Button size="small" type="primary" class="search-button" @click="doSearch">搜索</Button>
-        <Button size="small" class="cancel-button" @click="toggleSearchMode">取消</Button>
       </div>
     </div>
     
@@ -122,6 +105,31 @@
       </PullRefresh>
     </div>
     
+    <!-- 搜索悬浮窗 -->
+    <Popup
+      v-model:show="showSearchPopup"
+      position="top"
+      :style="{ height: 'auto' }"
+    >
+      <div class="search-popup">
+        <div class="search-controls">
+          <Field
+            v-model="searchText"
+            placeholder="搜索工单号/产品名称"
+            clearable
+            class="search-field"
+            @keypress.enter="doSearch"
+          >
+            <template #left-icon>
+              <Icon name="search" size="18" />
+            </template>
+          </Field>
+          <Button size="small" type="primary" class="search-button" @click="doSearch">搜索</Button>
+          <Button size="small" class="cancel-button" @click="showSearchPopup = false">取消</Button>
+        </div>
+      </div>
+    </Popup>
+    
     <!-- 快速筛选弹出框 -->
     <Popup
       v-model:show="showQuickFilterPopup"
@@ -159,31 +167,228 @@
       round
       closeable
     >
-      <div class="popup-title">排序方式</div>
-      <RadioGroup v-model="sortMethod" class="sort-options">
-        <Cell title="创建时间" clickable @click="setSortMethod('createTime')">
-          <template #right-icon>
-            <Radio name="createTime" />
-          </template>
-        </Cell>
-        <Cell title="优先级" clickable @click="setSortMethod('priority')">
-          <template #right-icon>
-            <Radio name="priority" />
-          </template>
-        </Cell>
-        <Cell title="计划开始时间" clickable @click="setSortMethod('startTime')">
-          <template #right-icon>
-            <Radio name="startTime" />
-          </template>
-        </Cell>
-        <Cell title="计划结束时间" clickable @click="setSortMethod('endTime')">
-          <template #right-icon>
-            <Radio name="endTime" />
-          </template>
-        </Cell>
-      </RadioGroup>
-      <div class="popup-actions">
-        <Button type="primary" block @click="applySort">确认</Button>
+      <div class="popup-title">排序</div>
+      
+      <div class="sort-table">
+        <div class="sort-row">
+          <div class="field-name">创建时间</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'createTime' && sortOrder === 'asc' }"
+              @click="setSortConfig('createTime', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'createTime' && sortOrder === 'desc' }"
+              @click="setSortConfig('createTime', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">更新时间</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'updateTime' && sortOrder === 'asc' }"
+              @click="setSortConfig('updateTime', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'updateTime' && sortOrder === 'desc' }"
+              @click="setSortConfig('updateTime', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">优先级</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'priority' && sortOrder === 'asc' }"
+              @click="setSortConfig('priority', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'priority' && sortOrder === 'desc' }"
+              @click="setSortConfig('priority', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">计划开始时间</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'startTime' && sortOrder === 'asc' }"
+              @click="setSortConfig('startTime', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'startTime' && sortOrder === 'desc' }"
+              @click="setSortConfig('startTime', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">计划结束时间</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'endTime' && sortOrder === 'asc' }"
+              @click="setSortConfig('endTime', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'endTime' && sortOrder === 'desc' }"
+              @click="setSortConfig('endTime', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">工单编号</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'orderNumber' && sortOrder === 'asc' }"
+              @click="setSortConfig('orderNumber', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'orderNumber' && sortOrder === 'desc' }"
+              @click="setSortConfig('orderNumber', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">产品编号</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'productCode' && sortOrder === 'asc' }"
+              @click="setSortConfig('productCode', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'productCode' && sortOrder === 'desc' }"
+              @click="setSortConfig('productCode', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">产品名称</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'productName' && sortOrder === 'asc' }"
+              @click="setSortConfig('productName', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'productName' && sortOrder === 'desc' }"
+              @click="setSortConfig('productName', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">产品规格</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'productSpec' && sortOrder === 'asc' }"
+              @click="setSortConfig('productSpec', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'productSpec' && sortOrder === 'desc' }"
+              @click="setSortConfig('productSpec', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">实际开始时间</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'actualStartTime' && sortOrder === 'asc' }"
+              @click="setSortConfig('actualStartTime', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'actualStartTime' && sortOrder === 'desc' }"
+              @click="setSortConfig('actualStartTime', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
+        
+        <div class="sort-row">
+          <div class="field-name">实际结束时间</div>
+          <div class="sort-actions">
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'actualEndTime' && sortOrder === 'asc' }"
+              @click="setSortConfig('actualEndTime', 'asc')"
+            >
+              升序
+            </div>
+            <div 
+              class="sort-button" 
+              :class="{ active: sortField === 'actualEndTime' && sortOrder === 'desc' }"
+              @click="setSortConfig('actualEndTime', 'desc')"
+            >
+              降序
+            </div>
+          </div>
+        </div>
       </div>
     </Popup>
     
@@ -240,13 +445,13 @@
     
     <!-- 日期选择器 -->
     <Popup v-model:show="showDatePicker" position="bottom">
-      <DatePicker
-        v-model="currentDate"
-        :title="datePickerTitle"
+      <Calendar
+        v-model:show="showDatePicker"
+        :show-confirm="true"
+        type="range"
         :min-date="new Date(2020, 0, 1)"
         :max-date="new Date()"
-        @confirm="onDateConfirm"
-        @cancel="showDatePicker = false"
+        @confirm="onCalendarConfirm"
       />
     </Popup>
   </div>
@@ -272,7 +477,7 @@ import {
   Cell, 
   NavBar, 
   Switch,
-  DatePicker,
+  Calendar,
   showToast,
   Dialog,
   Loading
@@ -290,7 +495,6 @@ import ProcessProgress from '@/components/ProcessProgress.vue';
 
 // 类型定义
 interface FilterCondition {
-  dateType: 'start' | 'end';
   startDate: string | null;
   endDate: string | null;
   status: string;
@@ -311,7 +515,7 @@ type TagType = 'default' | 'primary' | 'success' | 'warning' | 'danger';
 const router = useRouter();
 
 // 控件区域状态
-const isSearchMode = ref(false);
+const showSearchPopup = ref(false);
 const searchText = ref('');
 const quickFilter = ref('all');
 const tempQuickFilter = ref('all'); // 临时存储选择的过滤器
@@ -380,26 +584,43 @@ const getStatusType = (status: string): TagType => {
 
 // 排序弹出框
 const showSortPopup = ref(false);
-const sortMethod = ref('createTime');
+const sortField = ref('createTime');
+const sortOrder = ref('asc');
 
-// 设置排序方法
-const setSortMethod = (method: string) => {
-  sortMethod.value = method;
+// 设置排序配置
+const setSortConfig = (field: string, order: string) => {
+  sortField.value = field;
+  sortOrder.value = order;
+  
+  // 立即应用排序并关闭弹窗
+  applySort();
 };
 
 // 应用排序
 const applySort = () => {
-  showToast(`排序方式：${sortMethod.value}`);
+  // 显示中文提示
+  let fieldName = '';
+  switch (sortField.value) {
+    case 'createTime': fieldName = '创建时间'; break;
+    case 'updateTime': fieldName = '更新时间'; break;
+    case 'priority': fieldName = '优先级'; break;
+    case 'reportTime': fieldName = '工单截止时间'; break;
+    case 'orderNumber': fieldName = '工单编号'; break;
+    case 'productName': fieldName = '产品名称'; break;
+    case 'quantity': fieldName = '工单数量'; break;
+    default: fieldName = sortField.value;
+  }
+  
+  showToast(`排序方式：${fieldName} ${sortOrder.value === 'asc' ? '升序' : '降序'}`);
   showSortPopup.value = false;
   
-  // 重新加载数据
-  loadOrders();
+  // 对当前列表应用排序
+  sortOrders();
 };
 
 // 筛选弹出框
 const showFilterPopup = ref(false);
 const filter = ref<FilterCondition>({
-  dateType: 'start',
   startDate: null,
   endDate: null,
   status: '',
@@ -411,29 +632,17 @@ const filter = ref<FilterCondition>({
 
 // 日期选择
 const showDatePicker = ref(false);
-const currentDate = ref<string[]>([]);
-const datePickerTitle = ref('选择开始日期');
+const datePickerTitle = ref('选择时间范围');
 
 // 打开日期选择器
 const openDatePicker = () => {
-  filter.value.dateType = 'start';
-  datePickerTitle.value = '选择开始日期';
-  currentDate.value = [filter.value.startDate || new Date().toISOString().split('T')[0], filter.value.endDate || new Date().toISOString().split('T')[0]];
   showDatePicker.value = true;
 };
 
-// 日期确认
-const onDateConfirm = (value: string[]) => {
-  if (filter.value.dateType === 'start') {
-    filter.value.startDate = value[0];
-    filter.value.dateType = 'end';
-    datePickerTitle.value = '选择结束日期';
-    currentDate.value = value;
-  } else {
-    filter.value.endDate = value[1];
-    showDatePicker.value = false;
-    filter.value.dateType = 'start';
-  }
+// 日历确认
+const onCalendarConfirm = (value: [Date, Date]) => {
+  filter.value.startDate = formatDateHelper(value[0], 'yyyy-MM-dd');
+  filter.value.endDate = formatDateHelper(value[1], 'yyyy-MM-dd');
 };
 
 // 格式化日期
@@ -452,7 +661,6 @@ const formatDateRange = (start: string | null, end: string | null): string => {
 // 重置筛选条件
 const resetFilter = () => {
   filter.value = {
-    dateType: 'start',
     startDate: null,
     endDate: null,
     status: '',
@@ -461,7 +669,6 @@ const resetFilter = () => {
     productName: '',
     onlyUrgent: false
   };
-  currentDate.value = [new Date().toISOString().split('T')[0]];
   showToast('筛选条件已重置');
 };
 
@@ -699,6 +906,9 @@ const loadOrders = () => {
       }
     });
     
+    // 应用排序
+    sortOrders();
+    
     // 模拟加载完成
     loading.value = false;
     if (refreshing.value) refreshing.value = false;
@@ -739,14 +949,6 @@ const viewOrderDetail = (item: WorkOrderWithProgress) => {
   });
 };
 
-// 切换搜索模式
-const toggleSearchMode = () => {
-  isSearchMode.value = !isSearchMode.value;
-  if (!isSearchMode.value) {
-    searchText.value = '';
-  }
-};
-
 // 执行搜索
 const doSearch = () => {
   if (!searchText.value.trim()) {
@@ -757,8 +959,68 @@ const doSearch = () => {
   // 实际应用中应该调用API搜索
   showToast(`搜索：${searchText.value}`);
   
+  // 关闭搜索弹窗
+  showSearchPopup.value = false;
+  
   // 重新加载数据
   loadOrders();
+};
+
+// 对过滤后的工单列表排序
+const sortOrders = () => {
+  filteredOrders.value.sort((a, b) => {
+    let result = 0;
+    
+    switch (sortField.value) {
+      case 'createTime':
+        result = new Date(b.createTime || '').getTime() - new Date(a.createTime || '').getTime();
+        break;
+      case 'updateTime':
+        // 使用createTime代替updateTime（因为模型中没有updateTime字段）
+        result = new Date(b.createTime || '').getTime() - new Date(a.createTime || '').getTime();
+        break;
+      case 'priority':
+        // 对优先级排序 (加急在前)
+        const aUrgent = a.isUrgent === 1 ? 2 : 1;
+        const bUrgent = b.isUrgent === 1 ? 2 : 1;
+        result = bUrgent - aUrgent;
+        break;
+      case 'startTime':
+        result = new Date(b.startTime || '').getTime() - new Date(a.startTime || '').getTime();
+        break;
+      case 'endTime':
+        result = new Date(b.endTime || '').getTime() - new Date(a.endTime || '').getTime();
+        break;
+      case 'orderNumber':
+        result = a.orderNumber.localeCompare(b.orderNumber);
+        break;
+      case 'productCode':
+        // 使用productName代替productCode
+        result = a.productName.localeCompare(b.productName);
+        break;
+      case 'productName':
+        result = a.productName.localeCompare(b.productName);
+        break;
+      case 'productSpec':
+        // 使用productName代替productSpec
+        result = a.productName.localeCompare(b.productName);
+        break;
+      case 'actualStartTime':
+        // 使用startTime代替actualStartTime
+        result = new Date(b.startTime || '').getTime() - new Date(a.startTime || '').getTime();
+        break;
+      case 'actualEndTime':
+        // 使用endTime代替actualEndTime
+        result = new Date(b.endTime || '').getTime() - new Date(a.endTime || '').getTime();
+        break;
+      default:
+        // 默认按创建时间排序
+        result = new Date(b.createTime || '').getTime() - new Date(a.createTime || '').getTime();
+    }
+    
+    // 根据排序方向调整结果
+    return sortOrder.value === 'asc' ? -result : result;
+  });
 };
 </script>
 
@@ -806,16 +1068,6 @@ const doSearch = () => {
 
 .control-icon {
   padding: 4px;
-}
-
-.search-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.search-field {
-  flex: 1;
 }
 
 // 工单状态筛选区域
@@ -936,12 +1188,38 @@ const doSearch = () => {
   border-bottom: 1px solid #f2f2f2;
 }
 
-.sort-options, .filter-options {
-  padding: 8px 0;
+.sort-table {
+  padding: 16px;
 }
 
-.popup-actions {
-  padding: 16px;
+.sort-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.field-name {
+  font-size: 14px;
+  color: #323233;
+}
+
+.sort-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sort-button {
+  padding: 4px 8px;
+  border: 1px solid #1989fa;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  
+  &.active {
+    background-color: #1989fa;
+    color: white;
+  }
 }
 
 // 筛选面板
@@ -976,5 +1254,22 @@ const doSearch = () => {
 // 空状态
 .empty-list {
   padding: 40px 0;
+}
+
+// 搜索悬浮窗样式
+.search-popup {
+  background-color: white;
+  padding: 16px 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.search-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-field {
+  flex: 1;
 }
 </style> 

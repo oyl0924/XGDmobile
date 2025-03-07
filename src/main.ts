@@ -11,6 +11,8 @@ registerSW();
 
 // 全局样式
 import './assets/styles/global.less';
+// 新的全局样式
+import '@/styles/index.css';
 
 // Vant UI
 import { 
