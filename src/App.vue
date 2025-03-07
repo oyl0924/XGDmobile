@@ -96,6 +96,7 @@ import { ref, watch, onMounted, computed, onUnmounted } from 'vue';
 import { Tabbar, TabbarItem, Icon, Popup, NavBar, Button, showToast, RadioGroup, Radio, Cell, Dialog, showDialog } from 'vant';
 import { useRouter, useRoute } from 'vue-router';
 import { isWechat } from '@/utils/browser';
+import jsQR from 'jsqr';
 
 // 为旧版相机API添加类型定义
 interface NavigatorWithLegacyUserMedia extends Navigator {
@@ -326,18 +327,11 @@ const handleShowScanPage = () => {
     // 调用微信的扫一扫功能
     if (window.wx && window.wx.scanQRCode) {
       window.wx.scanQRCode({
-        needResult: 1, // 默认为0，扫描结果由微信处理，1则直接返回扫描结果
-        scanType: ["qrCode","barCode"], // 可以指定扫二维码还是条形码
+        needResult: 1,
+        scanType: ["qrCode","barCode"],
         success: function(res: any) {
-          const result = res.resultStr; // 当needResult 为 1 时，扫码返回的结果
-          // 显示扫码结果弹窗
-          scanResult.value = result;
-          showDialog({
-            title: '扫码结果',
-            message: result,
-            confirmButtonText: '确定',
-            showCancelButton: false,
-          });
+          const result = res.resultStr;
+          handleScanResult(result);
         },
         fail: function(error: any) {
           showToast('扫码失败，请重试');
@@ -355,15 +349,7 @@ const handleShowScanPage = () => {
 
 // 处理扫码结果
 const handleScanResult = (result: string) => {
-  // 显示扫码结果弹窗
-  scanResult.value = result;
-  showScanPage.value = false; // 关闭扫码页面
-  showDialog({
-    title: '扫码结果',
-    message: result,
-    confirmButtonText: '确定',
-    showCancelButton: false,
-  });
+  showToast(result);
 };
 
 // 在此添加扫码解码逻辑
@@ -382,31 +368,28 @@ const processImage = () => {
   // 将视频帧绘制到canvas上
   context.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height);
   
-  // 创建图像数据
+  // 获取图像数据
   const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
   
   try {
-    // 假设我们使用jsQR库进行解码
-    // 这里需要实际集成二维码识别库，例如jsQR, zxing等
-    // const code = jsQR(imageData.data, imageData.width, imageData.height);
+    // 使用jsQR库进行解码
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
     
-    // 为了模拟效果，我们这里直接设置一个模拟结果
-    // 实际项目中，应该替换为真实的二维码识别逻辑
-    const simulatedResult = "模拟扫码结果-" + Date.now();
+    if (code) {
+      // 找到二维码，显示结果
+      handleScanResult(code.data);
+    }
     
-    // 如果识别到二维码
-    handleScanResult(simulatedResult);
-    
-    // 真实逻辑下应该是：
-    // if (code) {
-    //   handleScanResult(code.data);
-    // } else {
-    //   // 继续扫描
-    //   setTimeout(processImage, 500);
-    // }
+    // 继续扫描
+    if (showScanPage.value) {
+      requestAnimationFrame(processImage);
+    }
   } catch (error) {
     console.error('二维码识别失败:', error);
-    setTimeout(processImage, 500);
+    // 继续扫描
+    if (showScanPage.value) {
+      requestAnimationFrame(processImage);
+    }
   }
 };
 

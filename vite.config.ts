@@ -2,13 +2,13 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import path from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from './package.json';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
-      registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'vite.svg', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: '车间小工单',
@@ -34,6 +34,38 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
+      },
+      workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // 使用版本号作为缓存的key
+        cacheId: `xgdmobile-${pkg.version}`,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/api\./i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: `api-cache-${pkg.version}`,
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 // 24小时
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
+      },
+      // 强制重新生成service worker
+      selfDestroying: true,
+      // 添加版本信息到注册文件
+      injectRegister: 'script',
+      registerType: 'prompt',
+      devOptions: {
+        enabled: true
       }
     })
   ],
@@ -55,4 +87,15 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['vue', 'vue-router', 'vant']
+        }
+      }
+    },
+    // 添加构建ID，每次构建时使用不同的值
+    buildId: pkg.version + '-' + Date.now()
+  }
 }); 

@@ -15,6 +15,7 @@
     "antd-mobile": "latest",
     "axios": "latest",
     "dayjs": "latest",
+    "jsqr": "^1.4.0",
     "pinia": "latest",
     "vant": "^4.9.17",
     "vue": "latest",
