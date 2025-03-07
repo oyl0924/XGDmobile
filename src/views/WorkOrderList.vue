@@ -119,6 +119,8 @@
             clearable
             class="search-field"
             @keypress.enter="doSearch"
+            ref="searchInputRef"
+            autofocus
           >
             <template #left-icon>
               <Icon name="search" size="18" />
@@ -838,6 +840,21 @@ const filteredOrders = computed<WorkOrderWithProgress[]>(() => {
 const loading = ref(false);
 const finished = ref(false);
 const refreshing = ref(false);
+
+// 在script部分添加
+const searchInputRef = ref();
+
+// 监听搜索弹窗显示状态
+watch(showSearchPopup, (newValue) => {
+  if (newValue) {
+    // 等待弹窗动画完成后聚焦输入框
+    setTimeout(() => {
+      if (searchInputRef.value) {
+        searchInputRef.value?.focus();
+      }
+    }, 100);
+  }
+});
 
 // 初始化
 onMounted(() => {

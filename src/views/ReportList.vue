@@ -377,6 +377,25 @@
                   <span class="info-value">{{ formatDate(item.reportTime) }}</span>
                 </div>
               </div>
+              
+              <!-- 添加功能按钮区 -->
+              <div class="report-actions">
+                <Button 
+                  :type="item.approved ? 'warning' : 'primary'"
+                  size="small"
+                  @click.stop="handleApprove(item)"
+                >
+                  {{ item.approved ? '反审核' : '审核' }}
+                </Button>
+                <Button 
+                  type="danger" 
+                  size="small"
+                  plain
+                  @click.stop="handleDelete(item)"
+                >
+                  删除
+                </Button>
+              </div>
             </div>
           </div>
         </List>
@@ -1000,6 +1019,63 @@ const isAllSelected = computed(() => {
   if (reports.value.length === 0) return false;
   return reports.value.every(item => item.selected);
 });
+
+// 方法: 处理审批
+const handleApprove = (item: WorkReportItem) => {
+  const action = item.approved ? '反审核' : '审核';
+  showDialog({
+    title: `确认${action}`,
+    message: `确定要${action}该条报工记录吗？`,
+    showCancelButton: true,
+  }).then(() => {
+    // 在实际应用中，这里应该调用API
+    item.approved = !item.approved;
+    
+    // 更新统计数据
+    updateStats();
+    // 更新标签页计数
+    updateTabCounts();
+    
+    showToast(`${action}成功`);
+    
+    // 如果当前在已审批/未审批标签页，则需要重新加载数据
+    if (activeTab.value !== 'all') {
+      loadReports();
+    }
+  }).catch(() => {
+    // 用户取消操作
+  });
+};
+
+// 方法: 处理删除
+const handleDelete = (item: WorkReportItem) => {
+  showDialog({
+    title: '确认删除',
+    message: '确定要删除该条报工记录吗？',
+    showCancelButton: true,
+  }).then(() => {
+    // 在实际应用中，这里应该调用API
+    const index = reports.value.findIndex(report => report.id === item.id);
+    if (index > -1) {
+      reports.value.splice(index, 1);
+      
+      // 同时从原始数据中删除
+      const originalIndex = originalReports.value.findIndex(report => report.id === item.id);
+      if (originalIndex > -1) {
+        originalReports.value.splice(originalIndex, 1);
+      }
+    }
+    
+    showToast('删除成功');
+    
+    // 更新统计数据
+    updateStats();
+    // 更新标签页计数
+    updateTabCounts();
+  }).catch(() => {
+    // 用户取消操作
+  });
+};
 </script>
 
 <style scoped lang="less">
@@ -1263,5 +1339,14 @@ const isAllSelected = computed(() => {
     background-color: #1989fa;
     color: white;
   }
+}
+
+.report-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f2f2f2;
 }
 </style> 
