@@ -94,8 +94,8 @@ export default defineConfig({
           vendor: ['vue', 'vue-router', 'vant']
         }
       }
-    },
-    // 添加构建ID，每次构建时使用不同的值
-    buildId: pkg.version + '-' + Date.now()
+    }
+    // buildId属性不被Vite类型支持，已移除
+    // 版本信息: ${pkg.version}-${Date.now()}
   }
 }); 
